@@ -55,7 +55,6 @@ wsl bash -c "sudo chmod 777 /dev/ttyUSB0"
 # Step 4: Launch
 Write-Host "" 
 Write-Host "Launching: RPLIDAR C1 -> laser_filter -> slam_toolbox -> RViz" -ForegroundColor Green
-Write-Host "(slam_toolbox will auto-configure at 4s and activate at 7s)" -ForegroundColor Gray
 Write-Host ""
 
 $repoPath = Split-Path -Parent $PSScriptRoot

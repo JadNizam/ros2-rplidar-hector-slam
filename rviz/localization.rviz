@@ -1,0 +1,49 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Map1
+        - /LaserScan1
+        - /TF1
+      Splitter Ratio: 0.5
+    Tree Height: 754
+  - Class: rviz_common/Views
+    Name: Views
+
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+    - Alpha: 0.85
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Enabled: true
+      Name: Map
+      Topic:
+        Value: /map
+    - Class: rviz_default_plugins/LaserScan
+      Color: 255; 85; 0
+      Enabled: true
+      Name: LaserScan
+      Size (m): 0.04
+      Topic:
+        Value: /scan_filtered
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+  Fixed Frame: map
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Value: true

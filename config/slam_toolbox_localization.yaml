@@ -12,6 +12,7 @@ slam_toolbox:
     base_frame: base_link
     scan_topic: /scan_filtered
     mode: localization
+    autostart: true
 
     use_pose_extrapolator: false  # lidar-only, no odometry
 

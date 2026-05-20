@@ -7,6 +7,8 @@ log/
 # Saved maps (keep the folder, not the files)
 maps/*.pgm
 maps/*.yaml
+maps/*.posegraph
+maps/*.data
 
 # RViz session temp files
 *.rviz~

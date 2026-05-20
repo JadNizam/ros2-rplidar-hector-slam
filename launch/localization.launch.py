@@ -1,11 +1,11 @@
 import os
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, TimerAction, DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), '..', 'config')
-RVIZ_CONFIG = os.path.join(os.path.dirname(__file__), '..', 'rviz', 'mapping.rviz')
+RVIZ_CONFIG = os.path.join(os.path.dirname(__file__), '..', 'rviz', 'localization.rviz')
 
 
 def generate_launch_description():
@@ -80,18 +80,4 @@ def generate_launch_description():
             arguments=['-d', RVIZ_CONFIG],
             output='screen',
         ),
-
-        # 6. Auto-lifecycle: configure at 4s, activate at 7s
-        TimerAction(period=4.0, actions=[
-            ExecuteProcess(
-                cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'configure'],
-                output='screen',
-            )
-        ]),
-        TimerAction(period=7.0, actions=[
-            ExecuteProcess(
-                cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'activate'],
-                output='screen',
-            )
-        ]),
     ])
