@@ -1,5 +1,7 @@
 import os
 from launch import LaunchDescription
+from launch.actions import ExecuteProcess, TimerAction, DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), '..', 'config')
@@ -7,9 +9,16 @@ RVIZ_CONFIG = os.path.join(os.path.dirname(__file__), '..', 'rviz', 'mapping.rvi
 
 
 def generate_launch_description():
-    return LaunchDescription([
+    map_file_arg = DeclareLaunchArgument(
+        'map_file',
+        description='Path to slam_toolbox .posegraph map file (without extension)'
+    )
+    map_file = LaunchConfiguration('map_file')
 
-        # 1. RPLIDAR C1 driver — publishes /scan
+    return LaunchDescription([
+        map_file_arg,
+
+        # 1. RPLIDAR C1 driver
         Node(
             package='rplidar_ros',
             executable='rplidar_composition',
@@ -23,20 +32,17 @@ def generate_launch_description():
             }]
         ),
 
-        # 2. Laser filter — removes points <0.15m and >8m before SLAM sees them
+        # 2. Laser filter
         Node(
             package='laser_filters',
             executable='scan_to_scan_filter_chain',
             name='laser_filter',
             output='screen',
             parameters=[os.path.join(CONFIG_DIR, 'laser_filters.yaml')],
-            remappings=[
-                ('scan', '/scan'),
-                ('scan_filtered', '/scan_filtered'),
-            ]
+            remappings=[('scan', '/scan'), ('scan_filtered', '/scan_filtered')],
         ),
 
-        # 3. Static TFs — no wheel odometry, identity transforms let SLAM work scan-only
+        # 3. Static TFs
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -54,13 +60,16 @@ def generate_launch_description():
                        '--frame-id', 'odom', '--child-frame-id', 'base_link'],
         ),
 
-        # 4. SLAM Toolbox — lidar-only mode, autostart handles lifecycle activation
+        # 4. slam_toolbox in LOCALIZATION mode — loads existing map
         Node(
             package='slam_toolbox',
-            executable='async_slam_toolbox_node',
+            executable='localization_slam_toolbox_node',
             name='slam_toolbox',
             output='screen',
-            parameters=[os.path.join(CONFIG_DIR, 'slam_toolbox_lidar_only.yaml')],
+            parameters=[
+                os.path.join(CONFIG_DIR, 'slam_toolbox_localization.yaml'),
+                {'map_file_name': map_file},
+            ],
         ),
 
         # 5. RViz
@@ -71,4 +80,18 @@ def generate_launch_description():
             arguments=['-d', RVIZ_CONFIG],
             output='screen',
         ),
+
+        # 6. Auto-lifecycle: configure at 4s, activate at 7s
+        TimerAction(period=4.0, actions=[
+            ExecuteProcess(
+                cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'configure'],
+                output='screen',
+            )
+        ]),
+        TimerAction(period=7.0, actions=[
+            ExecuteProcess(
+                cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'activate'],
+                output='screen',
+            )
+        ]),
     ])

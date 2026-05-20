@@ -22,12 +22,19 @@ Visualization Manager:
       Enabled: true
       Name: Grid
     - Class: rviz_default_plugins/LaserScan
-      Color: 255; 0; 0
+      Color: 255; 85; 0
       Enabled: true
-      Name: LaserScan
-      Size (m): 0.05
+      Name: LaserScan (raw)
+      Size (m): 0.03
       Topic:
         Value: /scan
+    - Class: rviz_default_plugins/LaserScan
+      Color: 0; 200; 0
+      Enabled: true
+      Name: LaserScan (filtered)
+      Size (m): 0.05
+      Topic:
+        Value: /scan_filtered
     - Alpha: 0.7
       Class: rviz_default_plugins/Map
       Color Scheme: map

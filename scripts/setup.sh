@@ -1,14 +1,15 @@
 #!/bin/bash
 set -e
 
-echo "Installing ROS 2 Humble dependencies for RPLiDAR SLAM..."
+echo "Installing ROS 2 Jazzy dependencies for RPLiDAR SLAM..."
 
 sudo apt update
 sudo apt install -y \
-    ros-humble-rplidar-ros \
-    ros-humble-hector-slam \
-    ros-humble-nav2-map-server \
-    ros-humble-rviz2
+    ros-jazzy-rplidar-ros \
+    ros-jazzy-slam-toolbox \
+    ros-jazzy-laser-filters \
+    ros-jazzy-nav2-map-server \
+    ros-jazzy-rviz2
 
 echo "Giving serial port permissions..."
 sudo usermod -aG dialout "$USER"
