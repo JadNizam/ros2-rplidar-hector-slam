@@ -52,9 +52,17 @@ echo "  Saved: ${MAPPATH}.pgm + ${MAPPATH}.yaml"
 
 echo ""
 echo "=== Saving slam_toolbox pose graph to: $MAPPATH ==="
+STATE=$(ros2 lifecycle get /slam_toolbox 2>/dev/null | awk '{print $1}')
+case "$STATE" in
+    unconfigured)
+        ros2 lifecycle set /slam_toolbox configure && sleep 1
+        ros2 lifecycle set /slam_toolbox activate && sleep 1 ;;
+    inactive)
+        ros2 lifecycle set /slam_toolbox activate && sleep 1 ;;
+esac
 ros2 service call /slam_toolbox/serialize_map \
     slam_toolbox/srv/SerializePoseGraph \
-    "{filename: '$MAPPATH'}" || echo "  (serialize service call failed — localization will not work)"
+    "{filename: '$MAPPATH'}" || echo "  (serialize failed — localization will not work)"
 echo "  Saved: ${MAPPATH}.posegraph + ${MAPPATH}.data"
 
 echo ""
