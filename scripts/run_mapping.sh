@@ -9,21 +9,41 @@ if [ ! -e /dev/ttyUSB0 ]; then
     exit 1
 fi
 
+echo "Stopping any leftover ROS nodes..."
+pkill -f rplidar_composition 2>/dev/null || true
+pkill -f async_slam_toolbox_node 2>/dev/null || true
+pkill -f scan_to_scan_filter_chain 2>/dev/null || true
+pkill -f rviz2 2>/dev/null || true
+sleep 2
+
 sudo chmod 777 /dev/ttyUSB0
 
-# Reset the RPLIDAR C1 via serial before launching.
-# Without this, re-launches fail with "Cannot start scan: 80008000/80008002"
-# because the device is still in a prior scan state.
-echo "Resetting RPLIDAR C1 (STOP + RESET commands over serial)..."
+echo "Resetting RPLIDAR C1..."
 stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok
-printf '\xa5\x25' > /dev/ttyUSB0   # STOP
-sleep 0.1
-printf '\xa5\x40' > /dev/ttyUSB0   # RESET (firmware restart)
-sleep 2
+printf '\xa5\x25' > /dev/ttyUSB0
+sleep 0.5
+printf '\xa5\x25' > /dev/ttyUSB0
+sleep 0.5
+printf '\xa5\x40' > /dev/ttyUSB0
+sleep 4
 echo "RPLIDAR reset complete."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
+cleanup() { kill $LAUNCH_PID 2>/dev/null || true; exit 0; }
+trap cleanup INT TERM
+
 echo "Launching RPLIDAR C1 + laser filter + slam_toolbox + RViz..."
-ros2 launch launch/mapping.launch.py
+ros2 launch launch/mapping.launch.py &
+LAUNCH_PID=$!
+
+echo "Waiting for slam_toolbox to initialize..."
+sleep 8
+ros2 lifecycle set /slam_toolbox configure 2>/dev/null || true
+sleep 1
+ros2 lifecycle set /slam_toolbox activate 2>/dev/null || true
+echo "slam_toolbox active — map is building. Walk around the room."
+
+wait $LAUNCH_PID
+
