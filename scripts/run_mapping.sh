@@ -12,21 +12,19 @@ fi
 echo "Stopping any leftover ROS nodes..."
 pkill -f rplidar_composition 2>/dev/null || true
 pkill -f async_slam_toolbox_node 2>/dev/null || true
+pkill -f localization_slam_toolbox_node 2>/dev/null || true
 pkill -f scan_to_scan_filter_chain 2>/dev/null || true
+pkill -f static_transform_publisher 2>/dev/null || true
 pkill -f rviz2 2>/dev/null || true
-sleep 2
+pkill -f "ros2 launch" 2>/dev/null || true
+sleep 1
+ros2 daemon stop 2>/dev/null || true
+sleep 1
+ros2 daemon start 2>/dev/null || true
+sleep 1
 
 sudo chmod 777 /dev/ttyUSB0
-
-echo "Resetting RPLIDAR C1..."
-stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok
-printf '\xa5\x25' > /dev/ttyUSB0
-sleep 0.5
-printf '\xa5\x25' > /dev/ttyUSB0
-sleep 0.5
-printf '\xa5\x40' > /dev/ttyUSB0
-sleep 4
-echo "RPLIDAR reset complete."
+echo "Port ready."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
