@@ -9,3 +9,12 @@ scan_to_scan_filter_chain:
         upper_threshold: 8.0
         lower_replacement_value: -.inf
         upper_replacement_value: .inf
+
+    # Uncomment to block a sector if the laptop body appears in the scan.
+    # Adjust lower_angle/upper_angle (radians) to match the blocked arc.
+    # filter2:
+    #   name: sector_block
+    #   type: laser_filters/LaserScanAngularBoundsFilter
+    #   params:
+    #     lower_angle: -2.618
+    #     upper_angle:  2.618
