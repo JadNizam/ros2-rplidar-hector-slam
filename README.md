@@ -77,6 +77,21 @@ bash scripts/run_mapping.sh
 
 RViz2 opens automatically. Walk around the room to build the map.
 
+The front scan filter is active by default (front 180°). To change the sector:
+```bash
+# Front 120° — tightest, least laptop bleed-through
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-60 front_angle_max_deg:=60
+
+# Front 180° — default
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
+
+# Front 220° — wider, better for long hallways
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-110 front_angle_max_deg:=110
+
+# If the arrow direction is reversed (front becomes rear in RViz):
+ros2 launch launch/mapping.launch.py angle_offset_deg:=180
+```
+
 ---
 
 ## 5. Save the Map
@@ -154,7 +169,42 @@ bash scripts/check_scan.sh
 
 ---
 
-## Troubleshooting
+## 9. Front Scan Filter (removing laptop / body artifacts)
+
+The pipeline filters `/scan` → `/scan_filtered` before SLAM sees it. Two filters run in sequence:
+1. Range filter: removes points closer than 0.15 m or farther than 8 m
+2. Angular bounds filter: keeps only the front sector (default ±90° = front 180°)
+
+SLAM consumes `/scan_filtered`. RViz shows both for comparison:
+- **LaserScan (raw)** — orange — full 360° from `/scan`
+- **LaserScan (filtered)** — green — front sector only from `/scan_filtered`
+
+**Calibrating the arrow direction:**
+
+1. Place a box or wall directly in front of the physical arrow on the LiDAR.
+2. Start mapping: `bash scripts/run_mapping.sh`
+3. In RViz, watch **LaserScan (raw)** — the box should appear near angle 0 (straight ahead in RViz).
+4. Watch **LaserScan (filtered)** — the box should still be visible; the rear half should be empty.
+5. If the box disappears and the laptop shows up instead, the arrow is reversed — relaunch with `angle_offset_deg:=180`.
+6. If the laptop is still partially visible on one side, narrow the sector: `front_angle_max_deg:=60`
+
+**Checking that SLAM uses the filtered scan:**
+```bash
+ros2 topic echo /scan_filtered --once | grep frame_id
+ros2 topic hz /scan_filtered
+# SLAM node should be in the subscriber list:
+ros2 topic info /scan_filtered
+```
+
+**Sector presets** (edit `config/laser_filters.yaml` filter2.params to change the default):
+
+| FOV | `lower_angle` | `upper_angle` | Use when |
+|-----|--------------|--------------|----------|
+| 120° | -1.0472 | 1.0472 | Laptop is very close to LiDAR |
+| 180° | -1.5708 | 1.5708 | Default — good for most setups |
+| 220° | -1.9199 | 1.9199 | Long hallways, need more side coverage |
+
+---
 
 **`/dev/ttyUSB0` not found**
 - Run in PowerShell (admin): `usbipd attach --wsl --busid 2-4`
