@@ -10,11 +10,13 @@ scan_to_scan_filter_chain:
         lower_replacement_value: -.inf
         upper_replacement_value: .inf
 
-    # Uncomment to block a sector if the laptop body appears in the scan.
-    # Adjust lower_angle/upper_angle (radians) to match the blocked arc.
-    # filter2:
-    #   name: sector_block
-    #   type: laser_filters/LaserScanAngularBoundsFilter
-    #   params:
-    #     lower_angle: -2.618
-    #     upper_angle:  2.618
+    # Angular bounds — keeps only the front sector, removes rear laptop/body.
+    # Angle 0 = forward (physical arrow on LiDAR). Angles in radians.
+    # Presets:  120°: -1.0472 / 1.0472   180°: -1.5708 / 1.5708   220°: -1.9199 / 1.9199
+    # Override at launch: ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
+    filter2:
+      name: front_sector
+      type: laser_filters/LaserScanAngularBoundsFilter
+      params:
+        lower_angle: -1.5708
+        upper_angle:  1.5708
