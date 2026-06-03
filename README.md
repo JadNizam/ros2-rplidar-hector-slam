@@ -256,26 +256,26 @@ All in `config/slam_toolbox_lidar_only.yaml`:
 
 | Parameter | Value | Why |
 |-----------|-------|-----|
-| `throttle_scans` | 3 | Process every 3rd scan (~3 Hz at 10 Hz scan rate). This is the safe way to limit node insertion rate when there's no odometry — unlike `minimum_travel_distance`, it doesn't require scan matching to be working first. |
-| `minimum_travel_distance` | 0.15 m | Minimum movement before a new scan node is inserted. Prevents ghost walls from tiny vibrations or standing still. |
-| `minimum_travel_heading` | 0.15 rad | Minimum rotation before a new scan node is inserted. Prevents map smearing when rotating slowly in place. |
-| `minimum_time_interval` | 0.5 s | Hard floor: no two consecutive nodes closer than 500 ms. |
+| `throttle_scans` | 1 | Process every scan. At 10 Hz this gives ~10 Hz of keyframe candidates, which with the travel/time thresholds still limits insertion rate without sacrificing coverage resolution. |
+| `minimum_travel_distance` | 0.1 m | Minimum movement before a new scan node is inserted. Prevents ghost walls while still giving dense coverage at slow walking speed. |
+| `minimum_travel_heading` | 0.1 rad | Minimum rotation before a new scan node is inserted. |
+| `minimum_time_interval` | 0.3 s | Hard floor: no two consecutive nodes closer than 300 ms. |
 | `link_match_minimum_response_fine` | 0.1 | Permissive link acceptance — needed for map building to start in open/sparse rooms. |
-| `scan_buffer_size` | 10 | Number of recent scans held in memory for running scan matching. |
+| `scan_buffer_size` | 15 | Number of recent scans held in memory for running scan matching and free-space estimation. |
 | `link_scan_maximum_distance` | 2.0 m | Search radius for nearby graph nodes to link. |
 | `loop_match_minimum_chain_size` | 10 | Require a chain of 10 nodes before attempting loop closure. |
 | `loop_match_minimum_response_coarse` | 0.35 | Coarse loop closure threshold — conservative to avoid false loop closures. |
 | `loop_match_minimum_response_fine` | 0.45 | Fine loop closure threshold. |
 | `correlation_search_space_dimension` | 0.5 m | Width of the scan correlation search window. Reduced from 0.7 to prevent aggressive over-matching during slow handheld rotation. |
-| `map_update_interval` | 5.0 s | How often the `/map` topic is published. Longer = fewer partial-update artifacts. |
+| `map_update_interval` | 2.0 s | How often the `/map` topic is published. 2 s gives responsive grey coverage in RViz while walking. |
 
 ---
 
 ## Safe Shutdown
 
 Press **Ctrl+C** once in the terminal running the script. The cleanup handler will:
-1. Send SIGTERM to `ros2 launch` (which propagates to all child nodes)
-2. Wait for them to exit
+1. Send SIGTERM to `rplidar_composition` first and wait 2 s for the motor to stop
+2. Kill the `ros2 launch` process and wait for it to exit
 3. Run targeted `pkill` on any remaining node processes
 4. Print `Shutdown complete.`
 
