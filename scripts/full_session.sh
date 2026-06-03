@@ -3,7 +3,6 @@
 # Usage: bash scripts/full_session.sh [mapname]
 # Requires RPLIDAR attached via usbipd: usbipd attach --wsl --busid 2-4
 
-set -e
 source /opt/ros/jazzy/setup.bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,6 +12,26 @@ MAPNAME="${1:-my_room}"
 MAPPATH="$MAP_DIR/$MAPNAME"
 
 mkdir -p "$MAP_DIR"
+
+LAUNCH_PID=""
+
+cleanup() {
+    echo "Stopping ROS 2 SLAM system..."
+    trap - SIGINT SIGTERM
+    pkill -SIGTERM -f rplidar_composition 2>/dev/null || true
+    sleep 2
+    [ -n "$LAUNCH_PID" ] && kill "$LAUNCH_PID" 2>/dev/null
+    [ -n "$LAUNCH_PID" ] && wait "$LAUNCH_PID" 2>/dev/null
+    pkill -f async_slam_toolbox_node 2>/dev/null || true
+    pkill -f localization_slam_toolbox_node 2>/dev/null || true
+    pkill -f scan_to_scan_filter_chain 2>/dev/null || true
+    pkill -f static_transform_publisher 2>/dev/null || true
+    pkill -f rviz2 2>/dev/null || true
+    pkill -SIGKILL -f rplidar_composition 2>/dev/null || true
+    echo "Shutdown complete."
+    exit 0
+}
+trap cleanup SIGINT SIGTERM
 
 if [ ! -e /dev/ttyUSB0 ]; then
     echo "ERROR: /dev/ttyUSB0 not found."
@@ -72,13 +91,15 @@ read -r
 
 echo ""
 echo "=== Stopping mapping... ==="
-kill "$LAUNCH_PID" 2>/dev/null || true
+[ -n "$LAUNCH_PID" ] && kill "$LAUNCH_PID" 2>/dev/null
+[ -n "$LAUNCH_PID" ] && wait "$LAUNCH_PID" 2>/dev/null
+pkill -f rplidar_composition 2>/dev/null || true
+pkill -f async_slam_toolbox_node 2>/dev/null || true
+pkill -f scan_to_scan_filter_chain 2>/dev/null || true
+pkill -f static_transform_publisher 2>/dev/null || true
+pkill -f rviz2 2>/dev/null || true
+LAUNCH_PID=""
 sleep 1
-pkill -f "rplidar_composition" 2>/dev/null || true
-pkill -f "slam_toolbox" 2>/dev/null || true
-pkill -f "scan_to_scan_filter_chain" 2>/dev/null || true
-pkill -f "rviz2" 2>/dev/null || true
-sleep 2
 
 echo ""
 echo "=== [3/3] Resetting RPLIDAR for localization ==="
