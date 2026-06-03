@@ -207,15 +207,65 @@ All in `config/slam_toolbox_lidar_only.yaml`:
 | Parameter | Value | Why |
 |-----------|-------|-----|
 | `throttle_scans` | 3 | Process every 3rd scan (~3 Hz at 10 Hz scan rate). This is the safe way to limit node insertion rate when there's no odometry — unlike `minimum_travel_distance`, it doesn't require scan matching to be working first. |
-| `minimum_travel_distance` | 0.0 | Disabled — with no odometry, travel distance is estimated FROM scan matching. If matching fails in a sparse area at session start, 0.0 would deadlock the map. Use `throttle_scans` instead. |
-| `minimum_travel_heading` | 0.0 | Same reason — disabled in favour of `throttle_scans`. |
-| `minimum_time_interval` | 0.25 s | Hard floor: no two consecutive nodes closer than 250 ms, regardless of throttle_scans. |
+| `minimum_travel_distance` | 0.15 m | Minimum movement before a new scan node is inserted. Prevents ghost walls from tiny vibrations or standing still. |
+| `minimum_travel_heading` | 0.15 rad | Minimum rotation before a new scan node is inserted. Prevents map smearing when rotating slowly in place. |
+| `minimum_time_interval` | 0.5 s | Hard floor: no two consecutive nodes closer than 500 ms. |
 | `link_match_minimum_response_fine` | 0.1 | Permissive link acceptance — needed for map building to start in open/sparse rooms. |
-| `scan_buffer_size` | 20 | Number of recent scans held in memory for running scan matching. More = better pose estimates. |
-| `link_scan_maximum_distance` | 2.0 m | Search radius for nearby graph nodes to link. Increased from 1.5 m to handle normal walking pace. |
-| `loop_match_minimum_chain_size` | 10 | Require a chain of 10 nodes before attempting loop closure. Prevents premature/false loop closures. |
-| `loop_match_minimum_response_coarse` | 0.45 | Coarse loop closure threshold — raised from 0.35 to reject weak matches. |
-| `loop_match_minimum_response_fine` | 0.55 | Fine loop closure threshold — raised from 0.45. |
-| `correlation_search_space_dimension` | 0.7 m | Width of the scan correlation search window. Wider = handles faster walking. |
-| `map_update_interval` | 3.0 s | How often the `/map` topic is published. Longer = fewer partial-update artifacts. |
-| `minimum_time_interval` | 0.2 s | Minimum gap between processed scans (~5 Hz). Reduced from 0.3 s for smoother tracking. |
+| `scan_buffer_size` | 10 | Number of recent scans held in memory for running scan matching. |
+| `link_scan_maximum_distance` | 2.0 m | Search radius for nearby graph nodes to link. |
+| `loop_match_minimum_chain_size` | 10 | Require a chain of 10 nodes before attempting loop closure. |
+| `loop_match_minimum_response_coarse` | 0.35 | Coarse loop closure threshold — conservative to avoid false loop closures. |
+| `loop_match_minimum_response_fine` | 0.45 | Fine loop closure threshold. |
+| `correlation_search_space_dimension` | 0.5 m | Width of the scan correlation search window. Reduced from 0.7 to prevent aggressive over-matching during slow handheld rotation. |
+| `map_update_interval` | 5.0 s | How often the `/map` topic is published. Longer = fewer partial-update artifacts. |
+
+---
+
+## Safe Shutdown
+
+Press **Ctrl+C** once in the terminal running the script. The cleanup handler will:
+1. Send SIGTERM to `ros2 launch` (which propagates to all child nodes)
+2. Wait for them to exit
+3. Run targeted `pkill` on any remaining node processes
+4. Print `Shutdown complete.`
+
+If the terminal was closed without Ctrl+C, use:
+```bash
+bash scripts/stop_ros.sh
+```
+
+Verify everything stopped:
+```bash
+ros2 node list
+# should return nothing (or only unrelated nodes)
+```
+
+---
+
+## Debug TF and Scan
+
+Run these **while** a launch script is active (in a second terminal):
+
+```bash
+source /opt/ros/jazzy/setup.bash
+
+# Full TF tree — saves frames.pdf in current directory
+ros2 run tf2_tools view_frames
+
+# Confirm the chain: map -> odom -> base_link -> laser
+ros2 run tf2_ros tf2_echo map laser
+ros2 run tf2_ros tf2_echo base_link laser
+
+# Check scan frame and rate
+ros2 topic echo /scan --once | grep frame_id
+ros2 topic hz /scan
+
+# Check filtered scan is flowing into slam_toolbox
+ros2 topic hz /scan_filtered
+```
+
+Expected TF chain: `map` → `odom` → `base_link` → `laser`
+
+If you see two XYZ axes in RViz at different positions, the most common causes are:
+- A previous session did not shut down cleanly — run `bash scripts/stop_ros.sh` first
+- The `map` origin axis and the robot's current pose axis are simply two different frames (this is normal — `map` is fixed at origin, `base_link`/`laser` move with you)
