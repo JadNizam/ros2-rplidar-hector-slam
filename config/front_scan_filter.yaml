@@ -1,0 +1,33 @@
+# Front scan sector reference for RP LiDAR C1
+# Actual filter lives in laser_filters.yaml (filter2).
+# Use launch args to override at runtime — no need to edit files between runs.
+#
+# Launch examples:
+#   ros2 launch launch/mapping.launch.py                                    # default 180°
+#   ros2 launch launch/mapping.launch.py front_angle_min_deg:=-60 front_angle_max_deg:=60   # 120°
+#   ros2 launch launch/mapping.launch.py front_angle_min_deg:=-110 front_angle_max_deg:=110 # 220°
+#   ros2 launch launch/mapping.launch.py angle_offset_deg:=180              # flip if reversed
+#
+# Angle presets (lower_angle / upper_angle in radians):
+#   120° FOV:  -1.0472 /  1.0472   (-60°  to  +60°)
+#   180° FOV:  -1.5708 /  1.5708   (-90°  to  +90°)   ← default
+#   220° FOV:  -1.9199 /  1.9199   (-110° to +110°)
+#
+# Calibration procedure:
+#   1. Place a box or wall directly in front of the LiDAR arrow.
+#   2. Start mapping: bash scripts/run_mapping.sh
+#   3. In RViz, watch "LaserScan (raw)" (/scan) — object should appear at angle ~0.
+#   4. Watch "LaserScan (filtered)" (/scan_filtered) — same object should still be visible.
+#   5. The rear half (laptop/body) should be absent from /scan_filtered.
+#   6. If the front object disappears and the laptop is still visible, the arrow direction
+#      is reversed — relaunch with angle_offset_deg:=180.
+#   7. If the laptop is still partially visible, narrow the sector: front_angle_max_deg:=60
+#   8. Once satisfied, update the defaults in laser_filters.yaml filter2.params.
+
+front_scan_filter:
+  ros__parameters:
+    # These are read by the launch file, not by a running node.
+    # Change defaults here or override with launch args.
+    front_angle_min_deg: -90.0
+    front_angle_max_deg:  90.0
+    angle_offset_deg: 0.0
