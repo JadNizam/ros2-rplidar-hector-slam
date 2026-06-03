@@ -1,14 +1,22 @@
 import os
+import math
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), '..', 'config')
 RVIZ_CONFIG = os.path.join(os.path.dirname(__file__), '..', 'rviz', 'mapping.rviz')
 
 
-def generate_launch_description():
-    return LaunchDescription([
+def launch_setup(context, *args, **kwargs):
+    min_deg = float(context.perform_substitution(LaunchConfiguration('front_angle_min_deg')))
+    max_deg = float(context.perform_substitution(LaunchConfiguration('front_angle_max_deg')))
+    offset  = float(context.perform_substitution(LaunchConfiguration('angle_offset_deg')))
+    lower_rad = math.radians(min_deg + offset)
+    upper_rad = math.radians(max_deg + offset)
 
+    return [
         # 1. RPLIDAR C1 driver — publishes /scan
         Node(
             package='rplidar_ros',
@@ -23,20 +31,26 @@ def generate_launch_description():
             }]
         ),
 
-        # 2. Laser filter — removes points <0.15m and >8m before SLAM sees them
+        # 2. Laser filter — range filter + front angular sector filter
         Node(
             package='laser_filters',
             executable='scan_to_scan_filter_chain',
             name='laser_filter',
             output='screen',
-            parameters=[os.path.join(CONFIG_DIR, 'laser_filters.yaml')],
+            parameters=[
+                os.path.join(CONFIG_DIR, 'laser_filters.yaml'),
+                {
+                    'filter2.params.lower_angle': lower_rad,
+                    'filter2.params.upper_angle': upper_rad,
+                },
+            ],
             remappings=[
                 ('scan', '/scan'),
                 ('scan_filtered', '/scan_filtered'),
             ]
         ),
 
-        # 3. Static TFs — no wheel odometry, identity transforms let SLAM work scan-only
+        # 3. Static TFs
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -54,7 +68,7 @@ def generate_launch_description():
                        '--frame-id', 'odom', '--child-frame-id', 'base_link'],
         ),
 
-        # 4. SLAM Toolbox — lidar-only mode, autostart handles lifecycle activation
+        # 4. SLAM Toolbox — consumes /scan_filtered
         Node(
             package='slam_toolbox',
             executable='async_slam_toolbox_node',
@@ -71,4 +85,22 @@ def generate_launch_description():
             arguments=['-d', RVIZ_CONFIG],
             output='screen',
         ),
+    ]
+
+
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'front_angle_min_deg', default_value='-90.0',
+            description='Start of front sector in degrees (right side, negative = clockwise from forward)'
+        ),
+        DeclareLaunchArgument(
+            'front_angle_max_deg', default_value='90.0',
+            description='End of front sector in degrees (left side)'
+        ),
+        DeclareLaunchArgument(
+            'angle_offset_deg', default_value='0.0',
+            description='Rotational offset if LiDAR arrow does not align with scan angle 0'
+        ),
+        OpaqueFunction(function=launch_setup),
     ])
