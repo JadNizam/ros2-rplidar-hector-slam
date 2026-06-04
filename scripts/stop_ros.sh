@@ -5,6 +5,9 @@
 source /opt/ros/jazzy/setup.bash
 
 echo "Stopping all ROS 2 SLAM nodes..."
+# Stop the ROS daemon so stale CLI clients do not keep resources alive.
+ros2 daemon stop 2>/dev/null || true
+sleep 1
 # LiDAR node first — needs time to stop the motor
 pkill -SIGTERM -f rplidar_composition 2>/dev/null || true
 sleep 2
@@ -15,5 +18,11 @@ pkill -f static_transform_publisher 2>/dev/null || true
 pkill -f rviz2 2>/dev/null || true
 pkill -f "ros2 launch" 2>/dev/null || true
 pkill -SIGKILL -f rplidar_composition 2>/dev/null || true
+pkill -SIGKILL -f async_slam_toolbox_node 2>/dev/null || true
+pkill -SIGKILL -f localization_slam_toolbox_node 2>/dev/null || true
+pkill -SIGKILL -f scan_to_scan_filter_chain 2>/dev/null || true
+pkill -SIGKILL -f static_transform_publisher 2>/dev/null || true
+pkill -SIGKILL -f rviz2 2>/dev/null || true
+pkill -SIGKILL -f "ros2 launch" 2>/dev/null || true
 sleep 1
 echo "Done. Verify with: ros2 node list"
