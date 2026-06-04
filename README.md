@@ -77,16 +77,21 @@ bash scripts/run_mapping.sh
 
 RViz2 opens automatically. Walk around the room to build the map.
 
-The front scan filter is active by default (front 180°). To change the sector:
+If you need to stop everything manually, run:
+```bash
+bash scripts/stop_ros.sh
+```
+
+The front scan filter is active by default (front 220°). To change the sector:
 ```bash
 # Front 120° — tightest, least laptop bleed-through
 ros2 launch launch/mapping.launch.py front_angle_min_deg:=-60 front_angle_max_deg:=60
 
-# Front 180° — default
-ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
-
-# Front 220° — wider, better for long hallways
+# Front 220° — default
 ros2 launch launch/mapping.launch.py front_angle_min_deg:=-110 front_angle_max_deg:=110
+
+# Front 180° — narrower, if you need to suppress more of the rear side
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
 
 # If the arrow direction is reversed (front becomes rear in RViz):
 ros2 launch launch/mapping.launch.py angle_offset_deg:=180
@@ -173,7 +178,7 @@ bash scripts/check_scan.sh
 
 The pipeline filters `/scan` → `/scan_filtered` before SLAM sees it. Two filters run in sequence:
 1. Range filter: removes points closer than 0.15 m or farther than 8 m
-2. Angular bounds filter: keeps only the front sector (default ±90° = front 180°)
+2. Angular bounds filter: keeps only the front sector (default ±110° = front 220°)
 
 SLAM consumes `/scan_filtered`. RViz shows both for comparison:
 - **LaserScan (raw)** — orange — full 360° from `/scan`
@@ -282,6 +287,25 @@ Press **Ctrl+C** once in the terminal running the script. The cleanup handler wi
 If the terminal was closed without Ctrl+C, use:
 ```bash
 bash scripts/stop_ros.sh
+```
+
+Equivalent kill-all command:
+```bash
+pkill -SIGTERM -f rplidar_composition
+sleep 2
+pkill -f async_slam_toolbox_node
+pkill -f localization_slam_toolbox_node
+pkill -f scan_to_scan_filter_chain
+pkill -f static_transform_publisher
+pkill -f rviz2
+pkill -f "ros2 launch"
+pkill -SIGKILL -f rplidar_composition
+pkill -SIGKILL -f async_slam_toolbox_node
+pkill -SIGKILL -f localization_slam_toolbox_node
+pkill -SIGKILL -f scan_to_scan_filter_chain
+pkill -SIGKILL -f static_transform_publisher
+pkill -SIGKILL -f rviz2
+pkill -SIGKILL -f "ros2 launch"
 ```
 
 Verify everything stopped:
