@@ -41,6 +41,12 @@ ros2 daemon stop 2>/dev/null || true
 sleep 1
 ros2 daemon start 2>/dev/null || true
 sleep 1
+
+stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok 2>/dev/null || true
+printf '\xa5\x25' > /dev/ttyUSB0 2>/dev/null || true
+sleep 0.2
+printf '\xa5\x40' > /dev/ttyUSB0 2>/dev/null || true
+sleep 2
 echo "Port ready."
 
 echo "Launching LOCALIZATION mode with map: $MAPNAME"

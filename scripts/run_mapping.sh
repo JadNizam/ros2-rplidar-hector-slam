@@ -23,6 +23,13 @@ ros2 daemon start 2>/dev/null || true
 sleep 1
 
 sudo chmod 777 /dev/ttyUSB0
+
+# Reset the LiDAR serial port — clears stuck scan mode from previous sessions
+stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok 2>/dev/null || true
+printf '\xa5\x25' > /dev/ttyUSB0 2>/dev/null || true   # STOP command
+sleep 0.2
+printf '\xa5\x40' > /dev/ttyUSB0 2>/dev/null || true   # RESET command
+sleep 2
 echo "Port ready."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
