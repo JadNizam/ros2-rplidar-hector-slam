@@ -24,12 +24,16 @@ sleep 1
 
 sudo chmod 777 /dev/ttyUSB0
 
-# Reset the LiDAR serial port — clears stuck scan mode from previous sessions
-stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok 2>/dev/null || true
-printf '\xa5\x25' > /dev/ttyUSB0 2>/dev/null || true   # STOP command
-sleep 0.2
-printf '\xa5\x40' > /dev/ttyUSB0 2>/dev/null || true   # RESET command
-sleep 2
+# Reset the LiDAR — clears stuck scan mode from previous sessions
+python3 -c "
+import serial, time
+s = serial.Serial('/dev/ttyUSB0', 460800, timeout=1)
+s.write(b'\xa5\x25')
+time.sleep(0.2)
+s.write(b'\xa5\x40')
+time.sleep(2)
+s.close()
+" 2>/dev/null || true
 echo "Port ready."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -43,11 +43,15 @@ sudo chmod 777 /dev/ttyUSB0
 
 echo ""
 echo "=== [1/3] Resetting RPLIDAR C1 ==="
-stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok
-printf '\xa5\x25' > /dev/ttyUSB0   # STOP
-sleep 0.1
-printf '\xa5\x40' > /dev/ttyUSB0   # RESET
-sleep 2
+python3 -c "
+import serial, time
+s = serial.Serial('/dev/ttyUSB0', 460800, timeout=1)
+s.write(b'\xa5\x25')
+time.sleep(0.2)
+s.write(b'\xa5\x40')
+time.sleep(2)
+s.close()
+" 2>/dev/null || true
 echo "Reset complete."
 
 echo ""
@@ -103,11 +107,15 @@ sleep 1
 
 echo ""
 echo "=== [3/3] Resetting RPLIDAR for localization ==="
-stty -F /dev/ttyUSB0 460800 raw -echo -echoe -echok
-printf '\xa5\x25' > /dev/ttyUSB0
-sleep 0.1
-printf '\xa5\x40' > /dev/ttyUSB0
-sleep 2
+python3 -c "
+import serial, time
+s = serial.Serial('/dev/ttyUSB0', 460800, timeout=1)
+s.write(b'\xa5\x25')
+time.sleep(0.2)
+s.write(b'\xa5\x40')
+time.sleep(2)
+s.close()
+" 2>/dev/null || true
 echo "Reset complete."
 
 if [ ! -f "${MAPPATH}.posegraph" ]; then
