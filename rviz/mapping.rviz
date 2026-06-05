@@ -25,6 +25,7 @@ Visualization Manager:
       Color: 255; 85; 0
       Enabled: true
       Name: LaserScan (raw)
+      Decay Time: 0.3
       Size (m): 0.03
       Topic:
         Value: /scan
@@ -32,6 +33,7 @@ Visualization Manager:
       Color: 0; 200; 0
       Enabled: true
       Name: LaserScan (filtered)
+      Decay Time: 0.3
       Size (m): 0.05
       Topic:
         Value: /scan_filtered
@@ -50,3 +52,14 @@ Visualization Manager:
     - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
   Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz)
+      Scale: 50
+      Angle: 0
+      X: 0
+      Y: 0
+    Saved: ~

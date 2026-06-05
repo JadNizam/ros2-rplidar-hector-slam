@@ -22,63 +22,7 @@ sleep 1
 ros2 daemon start 2>/dev/null || true
 sleep 1
 
-sudo chmod 777 /dev/ttyUSB0
-
-# Bring LiDAR to known IDLE state before launch.
-# Strategy: send STOP and verify device responds with GET_INFO.
-# Only do a full RESET if STOP alone doesn't work (RESET causes a reboot
-# that creates a race condition — the driver must NOT open the port during reboot).
-python3 - <<'PYEOF'
-import serial, time, sys
-
-PORT = '/dev/ttyUSB0'
-BAUD = 460800
-
-def get_info(s):
-    s.reset_input_buffer()
-    s.write(b'\xa5\x50')  # GET_INFO
-    s.flush()
-    resp = s.read(20)
-    return len(resp) >= 7 and resp[0:2] == b'\xa5\x5a'
-
-def stop_and_check(s):
-    s.reset_input_buffer()
-    s.write(b'\xa5\x25')  # STOP
-    s.flush()
-    time.sleep(1.0)
-    return get_info(s)
-
-s = serial.Serial(PORT, BAUD, timeout=2)
-
-# Attempt 1: just STOP
-if stop_and_check(s):
-    print('LiDAR stopped and responding — ready.')
-    s.reset_input_buffer()
-    s.close()
-    sys.exit(0)
-
-# Attempt 2: RESET then wait for reboot to complete
-print('STOP did not get response, sending RESET...')
-s.reset_input_buffer()
-s.write(b'\xa5\x40')  # RESET
-s.flush()
-time.sleep(6)  # Wait for full reboot
-
-if stop_and_check(s):
-    print('LiDAR reset and responding — ready.')
-    s.reset_input_buffer()
-    s.close()
-    sys.exit(0)
-
-# Last resort: wait more
-print('Waiting additional 4s...')
-time.sleep(4)
-stop_and_check(s)
-s.reset_input_buffer()
-s.close()
-print('Proceeding.')
-PYEOF
-echo "Port ready."
+chmod 666 /dev/ttyUSB0 2>/dev/null || sudo -n chmod 666 /dev/ttyUSB0 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
@@ -115,34 +59,39 @@ launch_once() {
 
     echo "Waiting for slam_toolbox to initialize..."
     sleep 8
+
+    # Quick sanity check: if launch already exited, rplidar likely crashed (80008002)
+    if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+        echo "ERROR: mapping launch exited during startup (LiDAR failed to start)."
+        LAUNCH_PID=""
+        return 1
+    fi
+
     ros2 lifecycle set /slam_toolbox configure 2>/dev/null || true
     sleep 1
     ros2 lifecycle set /slam_toolbox activate 2>/dev/null || true
+    sleep 1
+
+    if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+        echo "ERROR: mapping launch exited after lifecycle setup."
+        LAUNCH_PID=""
+        return 1
+    fi
+
     echo "slam_toolbox active — map is building. Walk around the room."
-
-    if ! timeout 15 ros2 topic echo /scan --once >/dev/null 2>&1; then
-        echo "ERROR: /scan is not publishing."
-        return 1
-    fi
-
-    if ! timeout 15 ros2 topic echo /scan_filtered --once >/dev/null 2>&1; then
-        echo "ERROR: /scan_filtered is not publishing."
-        return 1
-    fi
-
     wait "$LAUNCH_PID"
     launch_status=$?
     LAUNCH_PID=""
 
     if [ "$launch_status" -ne 0 ]; then
-        echo "ERROR: mapping launch exited unexpectedly."
+        echo "ERROR: mapping launch exited unexpectedly (exit $launch_status)."
         return 1
     fi
 
     return 0
 }
 
-MAX_ATTEMPTS=2
+MAX_ATTEMPTS=3
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
     if launch_once; then
         stop_all
@@ -153,7 +102,10 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
 
     if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
         echo "Retrying mapping startup ($attempt/$MAX_ATTEMPTS)..."
-        sleep 3
+        sleep 5
+        bash "$SCRIPT_DIR/stop_ros.sh" >/dev/null 2>&1 || true
+        ros2 daemon start 2>/dev/null || true
+        sleep 1
     fi
 done
 

@@ -77,20 +77,26 @@ bash scripts/run_mapping.sh
 
 RViz2 opens automatically. Walk around the room to build the map.
 
+The default RViz camera is now top-down and fixed on `map`, so the map stays visually static while `base_link`/`laser` move around it.
+The colored LaserScan displays are a live history trail; the persistent room shape is the `Map` display on `/map`.
+
 If you need to stop everything manually, run:
 ```bash
 bash scripts/stop_ros.sh
 ```
 
-The front scan filter is active by default (front 220°). To change the sector:
+The front scan filter is active by default (front 300°) during mapping. To change the sector:
 ```bash
 # Front 120° — tightest, least laptop bleed-through
 ros2 launch launch/mapping.launch.py front_angle_min_deg:=-60 front_angle_max_deg:=60
 
-# Front 220° — default
+# Front 300° — default for fast, dense room mapping
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-150 front_angle_max_deg:=150
+
+# Front 220° — if you need a bit less rear coverage
 ros2 launch launch/mapping.launch.py front_angle_min_deg:=-110 front_angle_max_deg:=110
 
-# Front 180° — narrower, if you need to suppress more of the rear side
+# Front 180° — if the laptop/body is still contaminating the scan
 ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
 
 # If the arrow direction is reversed (front becomes rear in RViz):
@@ -176,11 +182,11 @@ bash scripts/check_scan.sh
 
 ## 9. Front Scan Filter (removing laptop / body artifacts)
 
-The pipeline filters `/scan` → `/scan_filtered` before SLAM sees it. Two filters run in sequence:
+The pipeline still produces `/scan_filtered` for visualization and calibration, and **mapping now uses `/scan_filtered` again** so slam_toolbox sees fewer points and fills the room map more cleanly. Two filters run in sequence:
 1. Range filter: removes points closer than 0.15 m or farther than 8 m
-2. Angular bounds filter: keeps only the front sector (default ±110° = front 220°)
+2. Angular bounds filter: keeps only the front sector for display/cross-checking (default ±150° = front 300° during mapping)
 
-SLAM consumes `/scan_filtered`. RViz shows both for comparison:
+RViz shows both for comparison:
 - **LaserScan (raw)** — orange — full 360° from `/scan`
 - **LaserScan (filtered)** — green — front sector only from `/scan_filtered`
 
@@ -193,11 +199,11 @@ SLAM consumes `/scan_filtered`. RViz shows both for comparison:
 5. If the box disappears and the laptop shows up instead, the arrow is reversed — relaunch with `angle_offset_deg:=180`.
 6. If the laptop is still partially visible on one side, narrow the sector: `front_angle_max_deg:=60`
 
-**Checking that SLAM uses the filtered scan:**
+**Checking what SLAM uses:**
 ```bash
 ros2 topic echo /scan_filtered --once | grep frame_id
 ros2 topic hz /scan_filtered
-# SLAM node should be in the subscriber list:
+# Mapping mode should subscribe to /scan_filtered for cleaner map filling:
 ros2 topic info /scan_filtered
 ```
 
@@ -246,7 +252,7 @@ Work through these in order — each one is a likely cause:
 | 2 | Doubled walls, smearing | Walking too fast | Slow down to 0.5–0.8 m/s |
 | 3 | Walls drift or rotate | No static `base_link`→`laser` TF | Already included in launch — run `ros2 run tf2_tools view_frames` to confirm |
 | 4 | Map jumps sideways | False loop closure | Raise `loop_match_minimum_response_fine` in `slam_toolbox_lidar_only.yaml` |
-| 5 | Ghost walls from standing still | `minimum_travel_distance` was 0.0 | **Fixed** — now 0.1 m |
+| 5 | Ghost walls from standing still | `minimum_travel_distance` was 0.0 | **Fixed** — now 0.005 m |
 | 6 | Scan shows laptop/cable blob | Body blocking part of LiDAR view | Uncomment `sector_block_rear` filter in `laser_filters.yaml` and adjust angles |
 | 7 | Map has phantom walls near glass | LiDAR reflecting off windows | Route around glass; reduce `max_laser_range` to 6.0 in the YAML |
 | 8 | Map splits or tears | Two TF publishers for same frame | Run `ros2 run tf2_tools view_frames` — check for duplicate edges |
@@ -261,18 +267,18 @@ All in `config/slam_toolbox_lidar_only.yaml`:
 
 | Parameter | Value | Why |
 |-----------|-------|-----|
-| `throttle_scans` | 1 | Process every scan. At 10 Hz this gives ~10 Hz of keyframe candidates, which with the travel/time thresholds still limits insertion rate without sacrificing coverage resolution. |
-| `minimum_travel_distance` | 0.1 m | Minimum movement before a new scan node is inserted. Prevents ghost walls while still giving dense coverage at slow walking speed. |
-| `minimum_travel_heading` | 0.1 rad | Minimum rotation before a new scan node is inserted. |
-| `minimum_time_interval` | 0.3 s | Hard floor: no two consecutive nodes closer than 300 ms. |
+| `throttle_scans` | 3 | Process every third scan so walls are not stamped into the map too aggressively. |
+| `minimum_travel_distance` | 0.1 m | Minimum movement before a new scan node is inserted. Requires real walking movement, not vibration. |
+| `minimum_travel_heading` | 0.08 rad (~4.6°) | Minimum rotation before a new scan node is inserted. Prevents node spam from tiny jiggles. |
+| `minimum_time_interval` | 0.1 s | Hard floor: no two consecutive nodes closer than 100 ms. |
 | `link_match_minimum_response_fine` | 0.1 | Permissive link acceptance — needed for map building to start in open/sparse rooms. |
-| `scan_buffer_size` | 15 | Number of recent scans held in memory for running scan matching and free-space estimation. |
+| `scan_buffer_size` | 30 | Number of recent scans held in memory for running scan matching and free-space estimation. |
 | `link_scan_maximum_distance` | 2.0 m | Search radius for nearby graph nodes to link. |
 | `loop_match_minimum_chain_size` | 10 | Require a chain of 10 nodes before attempting loop closure. |
-| `loop_match_minimum_response_coarse` | 0.35 | Coarse loop closure threshold — conservative to avoid false loop closures. |
-| `loop_match_minimum_response_fine` | 0.45 | Fine loop closure threshold. |
+| `loop_match_minimum_response_coarse` | 0.25 | Coarse loop closure threshold — looser for quicker room stitching. |
+| `loop_match_minimum_response_fine` | 0.35 | Fine loop closure threshold. |
 | `correlation_search_space_dimension` | 0.5 m | Width of the scan correlation search window. Reduced from 0.7 to prevent aggressive over-matching during slow handheld rotation. |
-| `map_update_interval` | 2.0 s | How often the `/map` topic is published. 2 s gives responsive grey coverage in RViz while walking. |
+| `map_update_interval` | 0.1 s | How often the `/map` topic is published. The grey occupancy grid is the persistent map — the LaserScan displays are live-only trails (0.3 s decay). |
 
 ---
 
