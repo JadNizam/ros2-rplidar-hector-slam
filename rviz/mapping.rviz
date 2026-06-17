@@ -23,9 +23,9 @@ Visualization Manager:
       Name: Grid
     - Class: rviz_default_plugins/LaserScan
       Color: 255; 85; 0
-      Enabled: true
+      Enabled: false
       Name: LaserScan (raw)
-      Decay Time: 0.3
+      Decay Time: 0
       Size (m): 0.03
       Topic:
         Value: /scan
@@ -33,7 +33,7 @@ Visualization Manager:
       Color: 0; 200; 0
       Enabled: true
       Name: LaserScan (filtered)
-      Decay Time: 0.3
+      Decay Time: 0
       Size (m): 0.05
       Topic:
         Value: /scan_filtered
