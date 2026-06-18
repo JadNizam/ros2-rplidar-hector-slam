@@ -1,6 +1,8 @@
 # ROS 2 RPLiDAR SLAM
 
-2D mapping with a Slamtec RPLiDAR C1 and ROS 2 Jazzy. No odometry required.
+2D handheld mapping with a Slamtec RPLiDAR C1 and ROS 2 Jazzy. No wheel odometry — motion is estimated from the laser itself with **rf2o laser odometry**, which feeds slam_toolbox a real motion prior so the map tracks you as you walk.
+
+> **Why this matters:** slam_toolbox alone, with a fake static `odom`, has no idea you moved — it starts every scan match from "you didn't move" and under-registers motion, which freezes the pose and ghosts/doubles walls (especially smooth or curved ones). `rf2o_laser_odometry` supplies the missing motion estimate. This is the core architecture; don't replace the rf2o `odom→base_link` with a static identity transform.
 
 **Hardware:** RPLiDAR C1 → CP2102N USB board → USB-C adapter → Windows laptop (WSL2)
 
@@ -25,7 +27,7 @@ source /opt/ros/jazzy/setup.bash
 bash scripts/setup.sh
 ```
 
-This installs: `rplidar-ros`, `slam-toolbox`, `laser-filters`, `nav2-map-server`, `rviz2`
+This installs `rplidar-ros`, `slam-toolbox`, `laser-filters`, `nav2-map-server`, `rviz2`, and **builds `rf2o_laser_odometry` from source** into `ros2_ws/` (it isn't packaged for apt). The build needs internet the first time. The run scripts automatically source this overlay (`ros2_ws/install/setup.bash`); if you ever see a "rf2o overlay not found" warning, re-run `bash scripts/setup.sh`.
 
 Then grant permanent serial port access and **log out and back in**:
 ```bash
@@ -85,18 +87,12 @@ If you need to stop everything manually, run:
 bash scripts/stop_ros.sh
 ```
 
-The front scan filter is active by default (front 300°) during mapping. To change the sector:
+**The full 360° scan is used by default** — this is the most important setting for clean, fast room maps. Every scan sees the whole room, so consecutive scans overlap almost completely and the matcher (and rf2o) lock on hard, which is what stops ghost/double walls. Your body/hand is removed by a near-range cutoff (0.45 m), not by throwing away half the scan. Only narrow the sector as a last resort if your body is unavoidably in view and the near-cutoff isn't enough:
 ```bash
-# Front 120° — tightest, least laptop bleed-through
-ros2 launch launch/mapping.launch.py front_angle_min_deg:=-60 front_angle_max_deg:=60
+# DEFAULT: full 360° — best for room mapping, nothing to type
+bash scripts/run_mapping.sh
 
-# Front 300° — default for fast, dense room mapping
-ros2 launch launch/mapping.launch.py front_angle_min_deg:=-150 front_angle_max_deg:=150
-
-# Front 220° — if you need a bit less rear coverage
-ros2 launch launch/mapping.launch.py front_angle_min_deg:=-110 front_angle_max_deg:=110
-
-# Front 180° — if the laptop/body is still contaminating the scan
+# Narrow to front 180° ONLY if your body badly contaminates the rear scan
 ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
 
 # If the arrow direction is reversed (front becomes rear in RViz):
@@ -113,12 +109,14 @@ source /opt/ros/jazzy/setup.bash
 bash scripts/serialize_map.sh my_room
 ```
 
-This saves `maps/my_room.posegraph` (used for localization).
+This saves `maps/my_room.posegraph` (used for localization). **Do this while mapping is still running** (slam_toolbox must be alive to answer the save request).
 
-To also export a standard `.pgm`/`.yaml` image:
+To also export a standard `.pgm`/`.yaml` image, use the script (it sets the right QoS + timeout):
 ```bash
-ros2 run nav2_map_server map_saver_cli -f maps/my_room
+bash scripts/save_map.sh my_room
 ```
+
+> Don't run the bare `ros2 run nav2_map_server map_saver_cli -f maps/my_room` — its default 2 s timeout and volatile QoS make it fail with `Failed to spin mapsubscription` against slam_toolbox's latched `/map`. The script passes `save_map_timeout:=20.0` and `map_subscribe_transient_local:=true`, which is what makes it work. Mapping must still be running when you save.
 
 ---
 
@@ -133,17 +131,62 @@ bash scripts/run_localization.sh my_room
 
 ## 7. Walking Procedure (handheld mapping)
 
-Getting a clean map is mostly about *how* you walk, not just the software.
+Getting a clean map is mostly about *how* you walk, not just the software. The config is now tuned so you can move at a **normal-to-brisk walking pace (~1.5 m/s)** — the limit is set by `correlation_search_space_dimension` and `minimum_time_interval` (see Key Parameters).
 
-- **Keep the LiDAR level** — any tilt smears the 2D scan plane across different heights and creates ghost walls. Hold it flat or mount it on a flat surface.
-- **Walk slowly** — aim for 0.5–0.8 m/s. Fast movement outruns the scan matcher.
-- **Avoid fast rotation** — turn gradually. Spinning quickly causes scan matching to lose track.
+- **Keep the LiDAR level** — any tilt smears the 2D scan plane across different heights and creates ghost walls. Hold it flat.
+- **Hold it out in front, away from your torso** — the default 0.45 m near-cutoff removes your hand/handle and most of your body while keeping the full 360° of walls. A pole/handle above your head is even better (nothing of you in view at all), but is not required.
+- **Walk at a steady ~1.5 m/s** — you no longer need to creep. Just keep the speed *constant*; sudden accelerations are what break tracking, not speed itself.
+- **Turn smoothly, don't spin** — sweep corners in a steady arc rather than pivoting in place. The matcher tolerates ~200°/s, but jerky snaps lose track.
 - **Start in an open area** — gives the first scan a large, unambiguous reference.
-- **Walk loops when possible** — returning to where you started lets slam_toolbox close the loop and correct accumulated drift.
-- **Revisit earlier areas** — every time you walk past a previously mapped section, scan matching tightens up the map.
-- **Pause at corners and doorways** — stop for 1–2 seconds so the scan matcher locks in the geometry before you turn.
-- **Avoid glass and mirrors** — LiDAR reflections create phantom walls.
-- **Keep a consistent height** — moving the LiDAR up and down while walking creates inconsistent scan lines.
+- **Close loops** — return to where you started, and re-enter rooms/junctions you've already mapped. Each revisit lets slam_toolbox close a loop and snap accumulated corridor drift back into place. For a whole building, plan a route that ends where it began.
+- **Pause ~1 s at corners, doorways, and junctions** — lets the matcher lock the geometry before the view changes drastically.
+- **Avoid glass and mirrors** — LiDAR reflections create phantom walls. If a glass-heavy wing adds phantom walls, drop `max_laser_range`/range filter back to 8.0.
+- **Keep a consistent height** — moving the LiDAR up and down mid-walk creates inconsistent scan lines.
+
+### Scanning a whole building (route tips)
+
+- Map **one wing/floor as one continuous walk** — don't stop the node and restart, or you'll get disconnected map fragments.
+- Walk each corridor **down one side and back the other**, so both walls get dense coverage and the corridor gets a built-in loop closure.
+- At big intersections, **do a slow 360° turn** to tie the corridors together before continuing.
+- **Save often** (Section 5) — serialize the posegraph each time you finish a wing, so a single bad turn doesn't cost the whole session.
+
+### Hallways / long corridors (the hard case)
+
+A 2D LiDAR in a blank corridor sees only two parallel walls. It can lock your distance-to-walls and heading, but **not** your position *along* the corridor — every spot looks the same — so the map slips, compresses, or stalls until a non-parallel feature appears. Fixes, in order of impact:
+
+- **Keep an "end" in view.** The far end wall, an intersection, or a doorway is what pins your along-corridor position. For long corridors, **raise `max_laser_range` and the range filter `upper_threshold` to 10–12 m** so the end wall comes into reach (the stable default is 8 m for clean room maps). If no end/feature is within range, the middle *will* drift — keep walking steadily until the next feature appears; don't stop dead in a blank stretch.
+- **Mount high + go full 360°.** This is the single biggest win for hallways: from above your body the LiDAR sees *both* ends of the corridor and every doorway at once, which strongly constrains the along-axis position. Handheld at chest height, your body blocks the corridor behind you, throwing away half that constraint.
+
+```bash
+# Hallway mode: full 360° FOV (use with an overhead/pole mount so your body isn't in view)
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-180 front_angle_max_deg:=180
+```
+
+- **Work the features.** Pause ~1 s at every doorway, recess, pillar, fire extinguisher, or poster — anything that breaks the parallel walls gives the matcher a grip. Doors propped open into rooms are excellent anchors.
+- **Do a 360° turn at every junction/intersection** before continuing down a new corridor. This ties the corridors together and gives loop closure something solid.
+- **Walk down one side and back the other.** The return trip revisits the corridor and lets loop closure snap out the drift you accumulated on the way down.
+- **Laser odometry is now built in.** `rf2o_laser_odometry` gives slam_toolbox a forward-motion estimate that *carries you through* featureless corridors instead of slipping. It still has limits in perfectly blank corridors (no features = nothing to flow against), so the feature/loop-closure tips above still help — but it no longer freezes the moment you walk.
+
+### Tilt / wobble sensitivity (handheld)
+
+A 2D LiDAR only sees one flat slice of the world. When you tilt it while walking, that slice swings up or down, walls appear at slightly wrong ranges, and the scan stops matching the previous one — so SLAM freezes or the map jumps. The config now **tolerates** small tilts, but the real fix is keeping it level:
+
+- **Best fix — keep it level.** Even a flat plate with a stick-on bubble level, a cheap phone gimbal, or resting it on a clipboard held flat removes 90% of the problem.
+- **Hold it away from your body, close to your torso's turn axis.** Tucking your elbow in so the LiDAR turns *with you* (instead of swinging on your arm) keeps the plane steady.
+- **Software tolerance is set for reliable tracking** (`correlation_search_space_smear_deviation: 0.10`). Note: too much smear (>0.15) backfires — it blurs the match so much the matcher can't tell you moved, and the **map stops growing**. If tilt still breaks tracking, nudge smear to `0.12` only, not higher.
+
+### Walk faster / map bigger (tuning knobs)
+
+In `config/slam_toolbox_lidar_only.yaml`:
+- **More tilt/wobble tolerance:** nudge `correlation_search_space_smear_deviation` to `0.12` (not higher — above ~0.15 the map stops growing). Sharper walls (steady mount): lower toward `0.08`.
+- **To walk faster:** lower `minimum_time_interval` toward `0.1` and/or raise `correlation_search_space_dimension` toward `0.8`. (Wider search = more CPU and slightly more false-match risk.)
+- **For a very large building (sluggish/laggy):** raise `minimum_time_interval` toward `0.25` to keep the pose graph smaller.
+- **Maximize the field of view** (best quality, requires a high/pole mount so your body isn't in view):
+
+```bash
+# Full 360° — no angular filtering, best scan matching
+ros2 launch launch/mapping.launch.py front_angle_min_deg:=-180 front_angle_max_deg:=180
+```
 
 ---
 
@@ -166,10 +209,15 @@ ros2 topic echo /scan --once
 # Confirm filtered scan is flowing to slam_toolbox
 ros2 topic hz /scan_filtered
 
+# Confirm laser odometry is alive (THE thing that makes the pose track you)
+ros2 topic hz /odom_rf2o            # expect ~10 Hz
+ros2 run tf2_ros tf2_echo odom base_link   # values must change as you move
+
 # View the full TF tree (saves frames.pdf in cwd)
 ros2 run tf2_tools view_frames
 
 # Expected chain: map -> odom -> base_link -> laser
+# (map->odom from slam_toolbox, odom->base_link from rf2o, base_link->laser static)
 ros2 run tf2_ros tf2_echo map laser
 ```
 
@@ -183,8 +231,8 @@ bash scripts/check_scan.sh
 ## 9. Front Scan Filter (removing laptop / body artifacts)
 
 The pipeline still produces `/scan_filtered` for visualization and calibration, and **mapping now uses `/scan_filtered` again** so slam_toolbox sees fewer points and fills the room map more cleanly. Two filters run in sequence:
-1. Range filter: removes points closer than 0.15 m or farther than 8 m
-2. Angular bounds filter: keeps only the front sector for display/cross-checking (default ±150° = front 300° during mapping)
+1. Range filter: removes points closer than 0.45 m (your body/hand/handle) or farther than 8 m
+2. Angular bounds filter: full 360° by default (±180°). Narrow it only if your body is unavoidably in view
 
 RViz shows both for comparison:
 - **LaserScan (raw)** — orange — full 360° from `/scan`
@@ -252,7 +300,7 @@ Work through these in order — each one is a likely cause:
 | 2 | Doubled walls, smearing | Walking too fast | Slow down to 0.5–0.8 m/s |
 | 3 | Walls drift or rotate | No static `base_link`→`laser` TF | Already included in launch — run `ros2 run tf2_tools view_frames` to confirm |
 | 4 | Map jumps sideways | False loop closure | Raise `loop_match_minimum_response_fine` in `slam_toolbox_lidar_only.yaml` |
-| 5 | Ghost walls from standing still | `minimum_travel_distance` was 0.0 | **Fixed** — now 0.005 m |
+| 5 | Pose freezes / jitters in place, walls double up as you walk | No motion prior — rf2o laser odometry isn't running, so slam_toolbox falls back to "you didn't move" | Confirm rf2o is up: `ros2 topic hz /odom_rf2o` (should be ~10 Hz) and `ros2 run tf2_ros tf2_echo odom base_link` should change as you move. If `/odom_rf2o` is silent, the overlay wasn't sourced — re-run `bash scripts/setup.sh` then relaunch |
 | 6 | Scan shows laptop/cable blob | Body blocking part of LiDAR view | Uncomment `sector_block_rear` filter in `laser_filters.yaml` and adjust angles |
 | 7 | Map has phantom walls near glass | LiDAR reflecting off windows | Route around glass; reduce `max_laser_range` to 6.0 in the YAML |
 | 8 | Map splits or tears | Two TF publishers for same frame | Run `ros2 run tf2_tools view_frames` — check for duplicate edges |
@@ -263,22 +311,25 @@ Work through these in order — each one is a likely cause:
 
 ## Key Parameters Reference
 
-All in `config/slam_toolbox_lidar_only.yaml`:
+All in `config/slam_toolbox_lidar_only.yaml`. These defaults are tuned for a **stable, sharp handheld map with no odometry** — pin the walls, keep them put, add new geometry as you move:
 
 | Parameter | Value | Why |
 |-----------|-------|-----|
-| `throttle_scans` | 3 | Process every third scan so walls are not stamped into the map too aggressively. |
-| `minimum_travel_distance` | 0.1 m | Minimum movement before a new scan node is inserted. Requires real walking movement, not vibration. |
-| `minimum_travel_heading` | 0.08 rad (~4.6°) | Minimum rotation before a new scan node is inserted. Prevents node spam from tiny jiggles. |
-| `minimum_time_interval` | 0.1 s | Hard floor: no two consecutive nodes closer than 100 ms. |
-| `link_match_minimum_response_fine` | 0.1 | Permissive link acceptance — needed for map building to start in open/sparse rooms. |
-| `scan_buffer_size` | 30 | Number of recent scans held in memory for running scan matching and free-space estimation. |
-| `link_scan_maximum_distance` | 2.0 m | Search radius for nearby graph nodes to link. |
-| `loop_match_minimum_chain_size` | 10 | Require a chain of 10 nodes before attempting loop closure. |
-| `loop_match_minimum_response_coarse` | 0.25 | Coarse loop closure threshold — looser for quicker room stitching. |
-| `loop_match_minimum_response_fine` | 0.35 | Fine loop closure threshold. |
-| `correlation_search_space_dimension` | 0.5 m | Width of the scan correlation search window. Reduced from 0.7 to prevent aggressive over-matching during slow handheld rotation. |
-| `map_update_interval` | 0.1 s | How often the `/map` topic is published. The grey occupancy grid is the persistent map — the LaserScan displays are live-only trails (0.3 s decay). |
+| `throttle_scans` | 1 | Process every scan — there is no wheel odom to fall back on, so every scan matters for tracking motion. |
+| `minimum_travel_distance` | 0.2 m | Distance you must move before a new map node is added. Works correctly now because rf2o feeds a **real** `odom→base_link`. (It had to be 0.0 back when `odom` was a static identity TF — that workaround is gone.) Lower toward 0.1 for denser nodes, raise toward 0.3 for big buildings. |
+| `minimum_travel_heading` | 0.3 rad | Rotation (~17°) before a new node is added. Same rationale as above. |
+| `minimum_time_interval` | 0.2 s | Node-spacing throttle (~5 nodes/s) — steady and stable for normal walking. Lower toward 0.1 only if you walk fast. |
+| `max_laser_range` | 8.0 m | Keeps the map clean. Long-range (12 m) C1 returns are weak/noisy and show up as radial speckle that smears the map. Raise to 10–12 only for genuinely large halls. |
+| `correlation_search_space_dimension` | 0.5 m | Width of the scan-match search window. Tight = sharp, decisive matches. Wider windows let the pose jump to spurious matches (smearing). |
+| `correlation_search_space_smear_deviation` | 0.10 | Match-surface blur. Too high (>0.15) blurs it so much the matcher can't tell you moved and the map stops growing. 0.10 tracks reliably. |
+| `link_match_minimum_response_fine` | 0.10 | How good a scan-to-scan match must be to keep the link. Too permissive (<0.1) lets bad matches in and the map smears/ghosts. |
+| `angle_variance_penalty` | 1.0 | Lower value = matcher resists random rotation more, so heading stays stable and walls stop smearing into rotated fans. Real turns still register fine. |
+| `scan_buffer_size` | 20 | Recent scans kept as the running matching reference. Modest = locks onto your current surroundings (sharp walls) instead of fitting against older geometry (which smears in open rooms). |
+| `loop_match_minimum_chain_size` | 12 | Chain length required before attempting a loop closure (strict). |
+| `loop_match_minimum_response_coarse` | 0.45 | Coarse loop closure threshold (strict). |
+| `loop_match_minimum_response_fine` | 0.55 | Fine loop closure threshold. **Strict on purpose:** a loose value false-closes in repetitive rooms/halls and rotates/folds the whole map (the doubled walls + fan smears). Lower toward 0.50 only if big real loops never get corrected. |
+| `loop_search_maximum_distance` | 3.0 m | How far to look for a revisit when closing loops. |
+| `map_update_interval` | 0.20 s | How often `/map` is redrawn. Live LaserScan trails still update at full rate. |
 
 ---
 
