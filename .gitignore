@@ -9,6 +9,7 @@ ros2_ws/
 
 # Saved maps (keep the folder, not the files)
 maps/*.pgm
+maps/*.png
 maps/*.yaml
 maps/*.posegraph
 maps/*.data

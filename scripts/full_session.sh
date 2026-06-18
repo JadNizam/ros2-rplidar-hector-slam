@@ -79,7 +79,9 @@ echo ""
 echo "=== Saving PGM map to: $MAPPATH ==="
 ros2 run nav2_map_server map_saver_cli \
     -f "$MAPPATH" \
-    --ros-args -p save_map_timeout:=5.0
+    --ros-args \
+    -p save_map_timeout:=20.0 \
+    -p map_subscribe_transient_local:=true
 echo "  Saved: ${MAPPATH}.pgm + ${MAPPATH}.yaml"
 
 echo ""
