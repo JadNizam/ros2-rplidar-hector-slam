@@ -13,6 +13,7 @@ pkill -SIGTERM -f rplidar_composition 2>/dev/null || true
 sleep 2
 pkill -f async_slam_toolbox_node 2>/dev/null || true
 pkill -f localization_slam_toolbox_node 2>/dev/null || true
+pkill -f rf2o_laser_odometry 2>/dev/null || true
 pkill -f scan_to_scan_filter_chain 2>/dev/null || true
 pkill -f static_transform_publisher 2>/dev/null || true
 pkill -f rviz2 2>/dev/null || true
@@ -20,6 +21,7 @@ pkill -f "ros2 launch" 2>/dev/null || true
 pkill -SIGKILL -f rplidar_composition 2>/dev/null || true
 pkill -SIGKILL -f async_slam_toolbox_node 2>/dev/null || true
 pkill -SIGKILL -f localization_slam_toolbox_node 2>/dev/null || true
+pkill -SIGKILL -f rf2o_laser_odometry 2>/dev/null || true
 pkill -SIGKILL -f scan_to_scan_filter_chain 2>/dev/null || true
 pkill -SIGKILL -f static_transform_publisher 2>/dev/null || true
 pkill -SIGKILL -f rviz2 2>/dev/null || true

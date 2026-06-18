@@ -4,6 +4,9 @@ install/
 log/
 .colcon_install_layout
 
+# Laser-odometry overlay: cloned + built by scripts/setup.sh, not vendored
+ros2_ws/
+
 # Saved maps (keep the folder, not the files)
 maps/*.pgm
 maps/*.yaml

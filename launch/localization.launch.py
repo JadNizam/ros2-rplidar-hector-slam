@@ -48,7 +48,7 @@ def launch_setup(context, *args, **kwargs):
             remappings=[('scan', '/scan'), ('scan_filtered', '/scan_filtered')],
         ),
 
-        # 3. Static TFs
+        # 3. Static TF: base_link -> laser. (odom -> base_link comes from rf2o.)
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -57,16 +57,25 @@ def launch_setup(context, *args, **kwargs):
                        '--roll', '0', '--pitch', '0', '--yaw', '0',
                        '--frame-id', 'base_link', '--child-frame-id', 'laser'],
         ),
+
+        # 4. Laser odometry (rf2o) — odom -> base_link motion prior from scans.
         Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='odom_to_base',
-            arguments=['--x', '0', '--y', '0', '--z', '0',
-                       '--roll', '0', '--pitch', '0', '--yaw', '0',
-                       '--frame-id', 'odom', '--child-frame-id', 'base_link'],
+            package='rf2o_laser_odometry',
+            executable='rf2o_laser_odometry_node',
+            name='rf2o_laser_odometry',
+            output='screen',
+            parameters=[{
+                'laser_scan_topic': '/scan_filtered',
+                'odom_topic': '/odom_rf2o',
+                'publish_tf': True,
+                'base_frame_id': 'base_link',
+                'odom_frame_id': 'odom',
+                'init_pose_from_topic': '',
+                'freq': 10.0,
+            }],
         ),
 
-        # 4. slam_toolbox in LOCALIZATION mode — loads existing map
+        # 5. slam_toolbox in LOCALIZATION mode — loads existing map
         Node(
             package='slam_toolbox',
             executable='localization_slam_toolbox_node',
@@ -78,7 +87,7 @@ def launch_setup(context, *args, **kwargs):
             ],
         ),
 
-        # 5. RViz
+        # 6. RViz
         Node(
             package='rviz2',
             executable='rviz2',

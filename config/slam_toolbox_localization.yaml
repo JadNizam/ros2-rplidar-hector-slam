@@ -14,7 +14,8 @@ slam_toolbox:
     mode: localization
     autostart: true
 
-    use_pose_extrapolator: false
+    # TRUE: rf2o now provides a real odom->base_link velocity to extrapolate.
+    use_pose_extrapolator: true
 
     debug_logging: false
     # Handheld: process every scan (no wheel odom to gate on)
@@ -31,10 +32,10 @@ slam_toolbox:
 
     use_scan_matching: true
     use_scan_barycenter: true
-    # 0.0 because odom->base_link is a static identity TF: motion comes from
-    # scan matching. Positive values freeze tracking against the static odom.
-    minimum_travel_distance: 0.0
-    minimum_travel_heading: 0.0
+    # Positive now that rf2o feeds real odom: localize against real motion
+    # instead of re-matching co-located scans.
+    minimum_travel_distance: 0.2
+    minimum_travel_heading: 0.3
     scan_buffer_size: 15
     scan_buffer_maximum_scan_distance: 8.0
     link_match_minimum_response_fine: 0.1

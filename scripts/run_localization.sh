@@ -7,6 +7,13 @@ source /opt/ros/jazzy/setup.bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$SCRIPT_DIR/.."
+
+# Overlay with rf2o_laser_odometry (built by scripts/setup.sh)
+if [ -f "$REPO_DIR/ros2_ws/install/setup.bash" ]; then
+    source "$REPO_DIR/ros2_ws/install/setup.bash"
+else
+    echo "WARNING: rf2o overlay not found at ros2_ws/install — run scripts/setup.sh first."
+fi
 MAP_DIR="$REPO_DIR/maps"
 MAPNAME="${1:-slam_map}"
 MAPPATH="$MAP_DIR/$MAPNAME"
@@ -32,6 +39,7 @@ echo "Stopping any leftover ROS nodes..."
 pkill -f rplidar_composition 2>/dev/null || true
 pkill -f async_slam_toolbox_node 2>/dev/null || true
 pkill -f localization_slam_toolbox_node 2>/dev/null || true
+pkill -f rf2o_laser_odometry 2>/dev/null || true
 pkill -f scan_to_scan_filter_chain 2>/dev/null || true
 pkill -f static_transform_publisher 2>/dev/null || true
 pkill -f rviz2 2>/dev/null || true

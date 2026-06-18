@@ -14,15 +14,25 @@ slam_toolbox:
     mode: mapping
     autostart: true
 
-    use_pose_extrapolator: false
+    # TRUE now that rf2o publishes a real odom->base_link. The extrapolator
+    # uses the odometry velocity to predict where the LiDAR is between scan
+    # matches, so the live pose tracks you smoothly and the scan matcher gets a
+    # correct starting guess instead of "you didn't move".
+    use_pose_extrapolator: true
 
     debug_logging: false
     # Handheld: process every scan (no wheel odom to gate on)
     throttle_scans: 1
     transform_publish_period: 0.05
-    map_update_interval: 0.10
+    map_update_interval: 0.20
     resolution: 0.05
+    # 8 m keeps the map clean. Long-range (12 m) returns in a big room are weak
+    # and noisy and show up as radial "spoke" speckle that smears the map. Only
+    # raise this (to 10-12) for genuinely large halls where you need the reach.
     max_laser_range: 8.0
+    # Time floor between map nodes. With real laser odometry, node spacing is
+    # now driven mainly by travel distance/heading below; this just stops a
+    # burst of nodes if you whip around quickly. 0.2 s = up to ~5 nodes/s.
     minimum_time_interval: 0.2
     transform_timeout: 0.5
     tf_buffer_duration: 30.0
@@ -30,23 +40,39 @@ slam_toolbox:
 
     use_scan_matching: true
     use_scan_barycenter: true
-    # 0.0 because odom->base_link is a static identity TF: motion is
-    # estimated by scan matching, not by odometry. Any positive value here
-    # makes slam_toolbox think it never moved and freezes the map.
-    minimum_travel_distance: 0.0
-    minimum_travel_heading: 0.0
-    scan_buffer_size: 15
+    # Positive again because rf2o now feeds a REAL odom->base_link. These gate
+    # how far you must move before a new node/scan-match is added. Real values
+    # (instead of the old 0.0) stop the graph from piling up co-located nodes
+    # while you stand still, which is what smears walls into themselves.
+    # 0.15 m / ~14 deg keeps the map filling quickly as you walk a room.
+    minimum_travel_distance: 0.15
+    minimum_travel_heading: 0.25
+    # With the FULL 360 scan, a bigger buffer lets the matcher align against the
+    # whole room you've already seen, which keeps walls crisp and consistent as
+    # you move. (With a narrow front-only scan this would smear; full ring is
+    # why we can afford it now.)
+    scan_buffer_size: 30
     scan_buffer_maximum_scan_distance: 8.0
+    # Require a solid scan-to-scan match before linking. Too permissive (<0.1)
+    # lets bad matches in and the map smears/ghosts.
     link_match_minimum_response_fine: 0.1
     link_scan_maximum_distance: 2.0
 
     loop_search_maximum_distance: 3.0
     do_loop_closing: true
-    loop_match_minimum_chain_size: 10
+    # STRICT loop closure. In rooms/buildings with repeated geometry a loose
+    # loop closure fires falsely and rotates/folds the whole map (the doubled
+    # walls and fan smears). These thresholds only accept strong, long matches.
+    # If real drift is never getting corrected on big loops, lower
+    # loop_match_minimum_response_fine toward 0.5 a little at a time.
+    loop_match_minimum_chain_size: 12
     loop_match_maximum_variance_coarse: 3.0
-    loop_match_minimum_response_coarse: 0.25
-    loop_match_minimum_response_fine: 0.35
+    loop_match_minimum_response_coarse: 0.45
+    loop_match_minimum_response_fine: 0.55
 
+    # Tight search window = sharp, decisive matches. Wider windows let the pose
+    # jump to spurious matches in open areas (smearing). 0.5 m is plenty for
+    # normal walking between scans.
     correlation_search_space_dimension: 0.5
     correlation_search_space_resolution: 0.01
     correlation_search_space_smear_deviation: 0.1
@@ -55,7 +81,10 @@ slam_toolbox:
     loop_search_space_smear_deviation: 0.03
 
     distance_variance_penalty: 0.5
-    angle_variance_penalty: 1.5
+    # Lower angle penalty value = the matcher resists random rotation more, so
+    # the heading stays stable and walls stop smearing into rotated fans. You
+    # still turn fine because real rotation is a strong, consistent signal.
+    angle_variance_penalty: 1.0
     fine_search_angle_offset: 0.00349
     coarse_search_angle_offset: 0.5236
     coarse_angle_resolution: 0.0349

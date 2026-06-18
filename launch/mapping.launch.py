@@ -64,7 +64,13 @@ def launch_setup(context, *args, **kwargs):
             ],
         ),
 
-        # 3. Static TFs
+        # 3. Static TF: base_link -> laser (sensor mounting, identity here).
+        # NOTE: odom -> base_link is NOT static anymore. It is published by
+        # rf2o_laser_odometry below, which estimates real motion from the scans.
+        # A static identity odom here is what made the handheld pose freeze:
+        # slam_toolbox had no motion prior, so the scan matcher started every
+        # match from "you didn't move" and under-registered translation,
+        # ghosting smooth/curved walls.
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -75,18 +81,29 @@ def launch_setup(context, *args, **kwargs):
                 '--frame-id', 'base_link', '--child-frame-id', 'laser',
             ],
         ),
+
+        # 4. Laser odometry (rf2o) — estimates planar motion from consecutive
+        # scans and publishes odom -> base_link. This is the motion prior that
+        # lets slam_toolbox actually track the LiDAR as you walk (no wheels).
         Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='odom_to_base',
-            arguments=[
-                '--x', '0', '--y', '0', '--z', '0',
-                '--roll', '0', '--pitch', '0', '--yaw', '0',
-                '--frame-id', 'odom', '--child-frame-id', 'base_link',
-            ],
+            package='rf2o_laser_odometry',
+            executable='rf2o_laser_odometry_node',
+            name='rf2o_laser_odometry',
+            output='screen',
+            parameters=[{
+                'laser_scan_topic': '/scan_filtered',
+                'odom_topic': '/odom_rf2o',
+                'publish_tf': True,
+                'base_frame_id': 'base_link',
+                'odom_frame_id': 'odom',
+                # Empty => start odometry at the origin immediately (no GT topic
+                # to wait for). Leaving the default makes rf2o hang forever.
+                'init_pose_from_topic': '',
+                'freq': 10.0,
+            }],
         ),
 
-        # 4. SLAM Toolbox — consumes filtered scan
+        # 5. SLAM Toolbox — consumes filtered scan
         Node(
             package='slam_toolbox',
             executable='async_slam_toolbox_node',
@@ -98,7 +115,7 @@ def launch_setup(context, *args, **kwargs):
             ],
         ),
 
-        # 5. RViz
+        # 6. RViz
         Node(
             package='rviz2',
             executable='rviz2',
