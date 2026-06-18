@@ -5,7 +5,16 @@ scan_to_scan_filter_chain:
       type: laser_filters/LaserScanRangeFilter
       params:
         use_message_range_limits: false
-        lower_threshold: 0.15
+        # 0.45 m near-cutoff removes YOUR BODY/HAND/HANDLE from the scan without
+        # throwing away any walls (the old fix removed the whole rear half of the
+        # scan, which starved the scan matcher and rf2o of geometry). A held
+        # LiDAR's arm/torso sits inside ~0.45 m; real walls are farther. If you
+        # map a tight space and close walls vanish, lower toward 0.3. If your
+        # body still shows as a blob, raise toward 0.6.
+        lower_threshold: 0.45
+        # 8 m matches max_laser_range. Long-range C1 returns are weak/noisy and
+        # smear the map with radial speckle; clip them here. Raise to 10-12 only
+        # for very large halls where you need the extra reach.
         upper_threshold: 8.0
         lower_replacement_value: -.inf
         upper_replacement_value: .inf
@@ -18,5 +27,10 @@ scan_to_scan_filter_chain:
       name: front_sector
       type: laser_filters/LaserScanAngularBoundsFilter
       params:
-        lower_angle: -1.5708
-        upper_angle:  1.5708
+        # FULL 360 by default (-pi..pi). Keeping the whole ring is the single
+        # biggest accuracy win for handheld room mapping: every scan sees the
+        # entire room, so consecutive scans overlap almost completely and the
+        # matcher (and rf2o) lock on hard. Only narrow this if you cannot keep
+        # your body out of the view and the near-cutoff above isn't enough.
+        lower_angle: -3.14159
+        upper_angle:  3.14159

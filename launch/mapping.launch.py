@@ -130,13 +130,13 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'front_angle_min_deg',
-            default_value='-150.0',
-            description='Start of front sector in degrees (right side, negative = clockwise from forward)',
+            default_value='-180.0',
+            description='Start of kept sector in degrees. Default -180 = full 360 (best for room mapping). Narrow only if your body is unavoidably in view.',
         ),
         DeclareLaunchArgument(
             'front_angle_max_deg',
-            default_value='150.0',
-            description='End of front sector in degrees (left side)',
+            default_value='180.0',
+            description='End of kept sector in degrees. Default 180 = full 360.',
         ),
         DeclareLaunchArgument(
             'angle_offset_deg',

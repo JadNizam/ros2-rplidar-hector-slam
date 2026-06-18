@@ -105,12 +105,12 @@ def generate_launch_description():
             description='Path to slam_toolbox .posegraph map file (without extension)'
         ),
         DeclareLaunchArgument(
-            'front_angle_min_deg', default_value='-110.0',
-            description='Start of front sector in degrees'
+            'front_angle_min_deg', default_value='-180.0',
+            description='Start of kept sector in degrees. Default -180 = full 360.'
         ),
         DeclareLaunchArgument(
-            'front_angle_max_deg', default_value='110.0',
-            description='End of front sector in degrees'
+            'front_angle_max_deg', default_value='180.0',
+            description='End of kept sector in degrees. Default 180 = full 360.'
         ),
         DeclareLaunchArgument(
             'angle_offset_deg', default_value='0.0',
