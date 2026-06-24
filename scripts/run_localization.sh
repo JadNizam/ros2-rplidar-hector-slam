@@ -9,7 +9,6 @@ SCRIPT_DIR="$REPO_DIR/scripts"
 MAPNAME="${1:-my_room}"
 MAPPATH="$REPO_DIR/maps/$MAPNAME"
 
-# Must source (not bash) so ros2 launch sees rf2o_laser_odometry.
 source "$SCRIPT_DIR/source_ros_env.sh"
 
 [ -f "${MAPPATH}.posegraph" ] || { echo "Missing ${MAPPATH}.posegraph — run: bash scripts/save_map.sh $MAPNAME"; exit 1; }
@@ -47,11 +46,19 @@ launch_once() {
     ros2 launch launch/localization.launch.py "map_file:=${MAPPATH}" &
     LAUNCH_PID=$!
 
-    echo "Waiting for LiDAR and nodes..."
-    sleep 10
+    echo "Waiting for static map on /map..."
+    if ! bash "$SCRIPT_DIR/wait_for_map.sh" 15 /map; then
+        LAUNCH_PID=""
+        return 1
+    fi
+    bash "$SCRIPT_DIR/verify_map_topic.sh" || true
+
+    echo "Waiting for slam_toolbox and RViz..."
+    bash "$SCRIPT_DIR/wait_for_slam_active.sh" 30 || true
+    sleep 3
 
     if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
-        echo "ERROR: launch exited during startup (LiDAR 80008002 or missing package?)."
+        echo "ERROR: launch exited during startup."
         LAUNCH_PID=""
         return 1
     fi
@@ -61,18 +68,8 @@ launch_once() {
         return 1
     fi
 
-    echo "LiDAR OK — activating slam_toolbox (loads map on /map)..."
-    if ! bash "$SCRIPT_DIR/wait_for_slam_active.sh" 30; then
-        LAUNCH_PID=""
-        return 1
-    fi
-
-    if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
-        LAUNCH_PID=""
-        return 1
-    fi
-
-    echo "Ready. Map on /map in RViz. Click 2D Pose Estimate, then walk."
+    echo ""
+    echo "Ready — map on /map. Click 2D Pose Estimate, stand still ~2s, then walk."
     wait "$LAUNCH_PID"
     local status=$?
     LAUNCH_PID=""
