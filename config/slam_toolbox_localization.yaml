@@ -10,11 +10,15 @@ slam_toolbox:
     odom_frame: odom
     map_frame: map
     base_frame: base_link
-    scan_topic: /scan_filtered
+    scan_topic: /scan_for_slam
     mode: localization
 
     use_pose_extrapolator: true
 
+    # Trust the RViz 2D Pose click; search tightly around it (not across the room).
+    correlation_search_space_dimension: 0.35
+    coarse_search_angle_offset: 0.1745
+    minimum_angle_penalty: 0.95
     debug_logging: false
     throttle_scans: 1
     transform_publish_period: 0.05
@@ -37,15 +41,12 @@ slam_toolbox:
 
     do_loop_closing: false
 
-    correlation_search_space_dimension: 0.5
     correlation_search_space_resolution: 0.01
     correlation_search_space_smear_deviation: 0.1
 
     distance_variance_penalty: 0.5
     angle_variance_penalty: 1.0
     fine_search_angle_offset: 0.00349
-    coarse_search_angle_offset: 0.349
     coarse_angle_resolution: 0.0349
-    minimum_angle_penalty: 0.9
     minimum_distance_penalty: 0.5
     use_response_expansion: true
