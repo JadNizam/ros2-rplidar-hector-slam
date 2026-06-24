@@ -73,9 +73,10 @@ ls /dev/ttyUSB0
 ## 4. Run Mapping
 
 ```bash
-source /opt/ros/jazzy/setup.bash
 bash scripts/run_mapping.sh
 ```
+
+The script sources ROS + rf2o, stops stale nodes, resets the LiDAR, launches, and verifies `/scan`.
 
 RViz2 opens automatically. Walk around the room to build the map.
 
@@ -103,29 +104,78 @@ ros2 launch launch/mapping.launch.py angle_offset_deg:=180
 
 ## 5. Save the Map
 
-In a second terminal:
-```bash
-source /opt/ros/jazzy/setup.bash
-bash scripts/serialize_map.sh my_room
-```
-
-This saves `maps/my_room.posegraph` (used for localization). **Do this while mapping is still running** (slam_toolbox must be alive to answer the save request).
-
-To also export a standard `.pgm`/`.yaml` image, use the script (it sets the right QoS + timeout):
+In a second terminal (while mapping is still running):
 ```bash
 bash scripts/save_map.sh my_room
 ```
 
-> Don't run the bare `ros2 run nav2_map_server map_saver_cli -f maps/my_room` — its default 2 s timeout and volatile QoS make it fail with `Failed to spin mapsubscription` against slam_toolbox's latched `/map`. The script passes `save_map_timeout:=20.0` and `map_subscribe_transient_local:=true`, which is what makes it work. Mapping must still be running when you save.
+This saves **both** files localization needs:
+- `maps/my_room.posegraph` + `maps/my_room.data` — slam_toolbox serialized map (required for localization)
+- `maps/my_room.yaml` + `maps/my_room.png` (or `.pgm`) — occupancy grid for viewing / Nav2
+
+> Don't run bare `map_saver_cli` without the script's QoS/timeout flags — it often fails against slam_toolbox's latched `/map`.
 
 ---
 
 ## 6. Localization (existing map)
 
+Uses the **same LiDAR startup path as mapping** (`prepare_ros_session.sh` → reset → launch → verify `/scan`). slam_toolbox loads your saved posegraph and publishes `/map`.
+
+**Prerequisites** — save while mapping is still running:
 ```bash
-source /opt/ros/jazzy/setup.bash
+bash scripts/save_map.sh my_room
+```
+Needs `maps/my_room.posegraph`, `maps/my_room.data`, and `maps/my_room.yaml`.
+
+**Run localization** (script sources ROS + rf2o automatically — no manual `source` needed):
+```bash
+bash scripts/stop_ros.sh          # stop mapping first if it is still running
 bash scripts/run_localization.sh my_room
 ```
+
+> If you see `package 'rf2o_laser_odometry' not found`, run `bash scripts/setup.sh` once to build it.
+
+Wait for **"Ready. Map on /map in RViz"** (~10–15 s). The script checks `/scan` before activating slam_toolbox. Walls appear. Click **2D Pose Estimate** at your position, then walk.
+
+**LiDAR not spinning / no `/scan`?** The script retries 3× with full `stop_ros.sh` + LiDAR reset (same as mapping). If it still fails:
+```bash
+bash scripts/stop_ros.sh
+bash scripts/reset_lidar.sh
+bash scripts/run_localization.sh my_room
+```
+
+**Manual launch:**
+```bash
+source scripts/source_ros_env.sh
+bash scripts/prepare_ros_session.sh
+cd ~/ros2-rplidar-hector-slam
+ros2 launch launch/localization.launch.py map_file:=$(pwd)/maps/my_room
+# optional if not active after ~10 s:
+ros2 lifecycle get /slam_toolbox
+ros2 lifecycle set /slam_toolbox configure
+ros2 lifecycle set /slam_toolbox activate
+```
+
+### Localization debug checklist
+
+```bash
+source /opt/ros/jazzy/setup.bash
+ros2 node list                              # /rplidar, /slam_toolbox, /rf2o_laser_odometry
+ros2 topic hz /scan                         # ~7–15 Hz — LiDAR must be running
+ros2 topic hz /scan_filtered
+ros2 lifecycle get /slam_toolbox            # should be active
+ros2 run tf2_ros tf2_echo map odom
+ros2 run tf2_ros tf2_echo odom base_link
+```
+
+- **No `/scan`** → LiDAR failed (error `80008002`). Run `bash scripts/stop_ros.sh`, unplug/replug USB, `usbipd attach`, then retry.
+- Pose frozen → redo 2D Pose Estimate, then stand still 5 s for scan snap.
+- Scan not on walls after 5 s → click closer to your real position on the map.
+- Walls shifting / weird angles → you walked before 2D Pose Estimate, or moved too fast. Stop, relaunch, set pose again, walk slower.
+- Scan 90° off from arrow → `laser_mount_yaw_deg` must match mapping (default `-90` for C1). Re-map if you changed it.
+- Pose frozen → confirm you clicked 2D Pose Estimate first; then `ros2 topic hz /odom_rf2o` (~10 Hz).
+
+> The same filtered scan topic (`/scan_filtered`) is used for both mapping and localization, so the geometry slam_toolbox matches is consistent between the two modes.
 
 ---
 
@@ -242,10 +292,13 @@ RViz shows both for comparison:
 
 1. Place a box or wall directly in front of the physical arrow on the LiDAR.
 2. Start mapping: `bash scripts/run_mapping.sh`
-3. In RViz, watch **LaserScan (raw)** — the box should appear near angle 0 (straight ahead in RViz).
-4. Watch **LaserScan (filtered)** — the box should still be visible; the rear half should be empty.
-5. If the box disappears and the laptop shows up instead, the arrow is reversed — relaunch with `angle_offset_deg:=180`.
-6. If the laptop is still partially visible on one side, narrow the sector: `front_angle_max_deg:=60`
+3. In RViz, watch **LaserScan (raw)** — the box should appear straight ahead of the red arrow (base_link +X).
+4. Watch **LaserScan (filtered)** — the box should still be visible; full 360° is kept by default.
+5. Default `laser_mount_yaw_deg:=-90` aligns the C1 physical arrow with the red RViz +X axis.
+6. If the box is still off: try `laser_mount_yaw_deg:=0` (90° right) or `laser_mount_yaw_deg:=90` (180° off). Use `angle_offset_deg:=180` only if front/back is reversed.
+7. If your body still shows as a blob, raise the near cutoff in `config/laser_filters.yaml` or narrow the sector: `front_angle_max_deg:=60`
+
+> Re-map after changing `laser_mount_yaw_deg` so localization matches.
 
 **Checking what SLAM uses:**
 ```bash
