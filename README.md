@@ -119,7 +119,7 @@ This saves **both** files localization needs:
 
 ## 6. Localization (existing map)
 
-Uses the **same LiDAR startup path as mapping** (`prepare_ros_session.sh` → reset → launch → verify `/scan`). slam_toolbox loads your saved posegraph and publishes `/map`.
+Uses the **same LiDAR startup path as mapping**. The saved wall map (`my_room.yaml`) is published on `/map` **immediately** at launch; slam_toolbox loads the posegraph for localization (your pose on that same map).
 
 **Prerequisites** — save while mapping is still running:
 ```bash
@@ -135,7 +135,22 @@ bash scripts/run_localization.sh my_room
 
 > If you see `package 'rf2o_laser_odometry' not found`, run `bash scripts/setup.sh` once to build it.
 
-Wait for **"Ready. Map on /map in RViz"** (~10–15 s). The script checks `/scan` before activating slam_toolbox. Walls appear. Click **2D Pose Estimate** at your position, then walk.
+Wait for **"Ready — map on /map"** (~5–10 s). The wall map appears in RViz within a few seconds (static publisher). **You must click 2D Pose Estimate before walking** — scans are gated until then so slam_toolbox does not crash.
+
+### 2D Pose Estimate (set your position)
+
+1. Wait until walls appear on the map in RViz (~3 s after launch).
+2. Click **2D Pose Estimate** in RViz.
+3. Click where you are on the map; drag the **arrow** to face where you are looking (same orientation you used when mapping — red TF +X is forward).
+4. **Stand still ~2 seconds** so the scan snaps to the walls.
+5. Walk slowly; localization tracks from that exact pose.
+
+The `odom_reset_tf` node forwards your click to slam_toolbox and resets laser odometry at each click. `scan_gate` only feeds laser scans to slam_toolbox **after** the pose click.
+
+**Pose jumps or wrong heading?**
+- Re-click 2D Pose Estimate (stand still after each click).
+- `laser_mount_yaw_deg` must match mapping (default `-90` for C1 handheld).
+- Re-map if you changed `laser_mount_yaw_deg` after saving the map.
 
 **LiDAR not spinning / no `/scan`?** The script retries 3× with full `stop_ros.sh` + LiDAR reset (same as mapping). If it still fails:
 ```bash
@@ -160,7 +175,7 @@ ros2 lifecycle set /slam_toolbox activate
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-ros2 node list                              # /rplidar, /slam_toolbox, /rf2o_laser_odometry
+ros2 node list                              # /rplidar, /slam_toolbox, /odom_reset_tf, /rf2o_laser_odometry
 ros2 topic hz /scan                         # ~7–15 Hz — LiDAR must be running
 ros2 topic hz /scan_filtered
 ros2 lifecycle get /slam_toolbox            # should be active
