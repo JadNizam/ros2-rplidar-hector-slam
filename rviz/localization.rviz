@@ -21,7 +21,7 @@ Visualization Manager:
       Color: 160; 160; 164
       Enabled: true
       Name: Grid
-    - Alpha: 0.85
+    - Alpha: 0.7
       Class: rviz_default_plugins/Map
       Color Scheme: map
       Enabled: true
@@ -32,17 +32,18 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /map
+      Use Timestamp: false
     - Class: rviz_default_plugins/LaserScan
-      Color: 255; 85; 0
+      Color: 0; 200; 0
       Enabled: true
       Name: LaserScan
       Decay Time: 0
-      Size (m): 0.04
+      Size (m): 0.05
       Topic:
         Value: /scan_filtered
     - Class: rviz_default_plugins/TF
       Enabled: true
-      Frame Timeout: 15
+      Frame Timeout: 30
       Name: TF
       Show Arrows: true
       Show Axes: true
@@ -58,7 +59,7 @@ Visualization Manager:
       Shaft Length: 0.5
       Shaft Radius: 0.04
       Topic:
-        Value: /initialpose
+        Value: /initialpose_raw
   Fixed Frame: map
   Tools:
     - Class: rviz_default_plugins/Interact
@@ -68,7 +69,7 @@ Visualization Manager:
       Covariance y: 0.25
       Covariance yaw: 0.06853891909122467
       Topic:
-        Value: /initialpose
+        Value: /initialpose_raw
   Value: true
   Views:
     Current:
@@ -78,6 +79,6 @@ Visualization Manager:
       Value: TopDownOrtho (rviz)
       Scale: 18
       Angle: 0
-      X: 2.4
-      Y: 4.3
+      X: -7.3
+      Y: 6.2
     Saved: ~
