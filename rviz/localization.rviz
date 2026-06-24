@@ -27,12 +27,16 @@ Visualization Manager:
       Enabled: true
       Name: Map
       Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /map
     - Class: rviz_default_plugins/LaserScan
       Color: 255; 85; 0
       Enabled: true
       Name: LaserScan
-      Decay Time: 0.3
+      Decay Time: 0
       Size (m): 0.04
       Topic:
         Value: /scan_filtered
@@ -42,11 +46,29 @@ Visualization Manager:
       Name: TF
       Show Arrows: true
       Show Axes: true
-      Show Names: true
+      Show Names: false
+      Marker Scale: 0.4
+    - Alpha: 1
+      Class: rviz_default_plugins/PoseWithCovariance
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.2
+      Head Radius: 0.1
+      Name: InitialPose
+      Shaft Length: 0.5
+      Shaft Radius: 0.04
+      Topic:
+        Value: /initialpose
   Fixed Frame: map
   Tools:
     - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/SetInitialPose
+      Covariance x: 0.25
+      Covariance y: 0.25
+      Covariance yaw: 0.06853891909122467
+      Topic:
+        Value: /initialpose
   Value: true
   Views:
     Current:
@@ -54,8 +76,8 @@ Visualization Manager:
       Name: Current View
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
-      Scale: 50
+      Scale: 18
       Angle: 0
-      X: 0
-      Y: 0
+      X: 2.4
+      Y: 4.3
     Saved: ~
