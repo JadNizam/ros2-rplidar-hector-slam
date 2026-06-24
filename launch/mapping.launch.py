@@ -16,8 +16,10 @@ def launch_setup(context, *args, **kwargs):
     min_deg = float(context.perform_substitution(LaunchConfiguration('front_angle_min_deg')))
     max_deg = float(context.perform_substitution(LaunchConfiguration('front_angle_max_deg')))
     offset = float(context.perform_substitution(LaunchConfiguration('angle_offset_deg')))
+    laser_yaw_deg = float(context.perform_substitution(LaunchConfiguration('laser_mount_yaw_deg')))
     lower_rad = math.radians(min_deg + offset)
     upper_rad = math.radians(max_deg + offset)
+    laser_yaw_rad = math.radians(laser_yaw_deg)
 
     # 1. RPLIDAR C1 driver — publishes /scan
     rplidar_node = Node(
@@ -64,7 +66,7 @@ def launch_setup(context, *args, **kwargs):
             ],
         ),
 
-        # 3. Static TF: base_link -> laser (sensor mounting, identity here).
+        # 3. Static TF: base_link -> laser (handheld mounting yaw).
         # NOTE: odom -> base_link is NOT static anymore. It is published by
         # rf2o_laser_odometry below, which estimates real motion from the scans.
         # A static identity odom here is what made the handheld pose freeze:
@@ -77,7 +79,7 @@ def launch_setup(context, *args, **kwargs):
             name='base_to_laser',
             arguments=[
                 '--x', '0', '--y', '0', '--z', '0',
-                '--roll', '0', '--pitch', '0', '--yaw', '0',
+                '--roll', '0', '--pitch', '0', '--yaw', str(laser_yaw_rad),
                 '--frame-id', 'base_link', '--child-frame-id', 'laser',
             ],
         ),
@@ -142,6 +144,11 @@ def generate_launch_description():
             'angle_offset_deg',
             default_value='0.0',
             description='Rotational offset if LiDAR arrow does not align with scan angle 0',
+        ),
+        DeclareLaunchArgument(
+            'laser_mount_yaw_deg',
+            default_value='-90.0',
+            description='Yaw (deg) from base_link +X (RViz arrow) to laser frame. C1 handheld: -90 aligns the physical arrow with scan forward.',
         ),
         OpaqueFunction(function=launch_setup),
     ])

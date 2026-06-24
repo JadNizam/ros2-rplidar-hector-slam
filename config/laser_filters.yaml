@@ -20,7 +20,8 @@ scan_to_scan_filter_chain:
         upper_replacement_value: .inf
 
     # Angular bounds — keeps only the front sector, removes rear laptop/body.
-    # Angle 0 = forward (physical arrow on LiDAR). Angles in radians.
+    # Angle 0 in /scan is along laser +X. base_link +X is the RViz 2D Pose arrow;
+    # laser_mount_yaw_deg in the launch file rotates laser vs that arrow (default -90° for C1 handheld).
     # Presets:  120°: -1.0472 / 1.0472   180°: -1.5708 / 1.5708   220°: -1.9199 / 1.9199
     # Override at launch: ros2 launch launch/mapping.launch.py front_angle_min_deg:=-90 front_angle_max_deg:=90
     filter2:
