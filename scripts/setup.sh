@@ -11,6 +11,7 @@ sudo apt install -y \
     ros-jazzy-slam-toolbox \
     ros-jazzy-laser-filters \
     ros-jazzy-nav2-map-server \
+    ros-jazzy-nav2-amcl \
     ros-jazzy-rviz2 \
     ros-jazzy-eigen3-cmake-module \
     python3-colcon-common-extensions \
