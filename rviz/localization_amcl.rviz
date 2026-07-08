@@ -1,0 +1,111 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Map1
+        - /LaserScan1
+        - /AMCLPose1
+        - /TF1
+      Splitter Ratio: 0.5
+    Tree Height: 754
+  - Class: rviz_common/Views
+    Name: Views
+
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+    - Alpha: 0.7
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Enabled: true
+      Name: Map
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
+      Use Timestamp: false
+    - Class: rviz_default_plugins/LaserScan
+      Color: 0; 255; 0
+      Enabled: true
+      Name: LaserScan
+      Decay Time: 0
+      Size (m): 0.08
+      Style: Spheres
+      Topic:
+        Value: /scan_filtered
+    - Alpha: 1
+      Arrow Length: 0.3
+      Class: rviz_default_plugins/PoseArray
+      Color: 0; 100; 255
+      Enabled: true
+      Name: ParticleCloud
+      Shape: Arrow (Flat)
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /particle_cloud
+    - Alpha: 1
+      Class: rviz_default_plugins/PoseWithCovariance
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.4
+      Head Radius: 0.25
+      Name: AMCLPose
+      Shaft Length: 1
+      Shaft Radius: 0.1
+      Covariance:
+        Value: true
+        Position:
+          Alpha: 0.3
+          Color: 204; 51; 204
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /amcl_pose
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 30
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Marker Scale: 1.5
+  Fixed Frame: map
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/SetInitialPose
+      Covariance x: 0.25
+      Covariance y: 0.25
+      Covariance yaw: 0.06853891909122467
+      Topic:
+        Value: /initialpose
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz)
+      Scale: 18
+      Angle: 0
+      X: -7.3
+      Y: 6.2
+    Saved: ~
