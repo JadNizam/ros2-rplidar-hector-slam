@@ -145,7 +145,7 @@ Wait for **"Ready — map on /map"** (~5–10 s). The wall map appears in RViz w
 4. **Stand still ~2 seconds** so the scan snaps to the walls.
 5. Walk slowly; localization tracks from that exact pose.
 
-The `odom_reset_tf` node forwards your click to slam_toolbox and resets laser odometry at each click. `scan_gate` only feeds laser scans to slam_toolbox **after** the pose click.
+The `initial_pose_relay` node forwards your click to slam_toolbox on `/initialpose` and clears its scan buffer on re-clicks. slam_toolbox owns `map→odom` from your pose; `rf2o_laser_odometry` publishes continuous `odom→base_link` (same as mapping). `scan_gate` only feeds laser scans to slam_toolbox **after** the pose click.
 
 **Pose jumps or wrong heading?**
 - Re-click 2D Pose Estimate (stand still after each click).
@@ -175,7 +175,7 @@ ros2 lifecycle set /slam_toolbox activate
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-ros2 node list                              # /rplidar, /slam_toolbox, /odom_reset_tf, /rf2o_laser_odometry
+ros2 node list                              # /rplidar, /slam_toolbox, /initial_pose_relay, /rf2o_laser_odometry
 ros2 topic hz /scan                         # ~7–15 Hz — LiDAR must be running
 ros2 topic hz /scan_filtered
 ros2 lifecycle get /slam_toolbox            # should be active
