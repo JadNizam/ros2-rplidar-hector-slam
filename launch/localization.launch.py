@@ -10,8 +10,7 @@ from launch.actions import (
     RegisterEventHandler,
     TimerAction,
 )
-from launch.event_handlers import OnProcessExit
-from launch.events import Shutdown, matches_action
+from launch.events import matches_action
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import LifecycleNode, Node
 from launch_ros.event_handlers import OnStateTransition
@@ -49,17 +48,6 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    map_odom_bootstrap = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='map_odom_bootstrap',
-        arguments=[
-            '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '0',
-            '--frame-id', 'map', '--child-frame-id', 'odom',
-        ],
-    )
-
     odom_reset_tf = Node(
         name='odom_reset_tf',
         executable='python3',
@@ -74,24 +62,21 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
+    # See mapping.launch.py: the C1 cold-start is intermittent, so respawn the
+    # driver until the scan catches instead of tearing down the whole stack.
     rplidar_node = Node(
         package='rplidar_ros',
         executable='rplidar_composition',
         name='rplidar',
         output='screen',
+        respawn=True,
+        respawn_delay=3.0,
         parameters=[{
             'serial_port': '/dev/ttyUSB0',
             'serial_baudrate': 460800,
             'frame_id': 'laser',
             'angle_compensate': True,
         }],
-    )
-
-    rplidar_exit_handler = RegisterEventHandler(
-        OnProcessExit(
-            target_action=rplidar_node,
-            on_exit=[EmitEvent(event=Shutdown())],
-        )
     )
 
     # Localization logic only; RViz map comes from localization_map_viz on /map.
@@ -194,14 +179,12 @@ def launch_setup(context, *args, **kwargs):
 
     return [
         map_viz_node,
-        map_odom_bootstrap,
         slam_toolbox_node,
         configure_slam,
         activate_slam,
         odom_reset_tf,
         scan_gate,
         rplidar_node,
-        rplidar_exit_handler,
         rviz_after_map,
         *delayed_nodes,
     ]
