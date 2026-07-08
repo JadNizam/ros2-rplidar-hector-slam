@@ -26,6 +26,8 @@ pkill -f "nav2_map_server.*map_server" 2>/dev/null || true
 pkill -f saved_map_server 2>/dev/null || true
 pkill -f map_server 2>/dev/null || true
 pkill -f odom_reset_tf 2>/dev/null || true
+pkill -f initial_pose_relay 2>/dev/null || true
+pkill -f "initial_pose_relay.py" 2>/dev/null || true
 pkill -f scan_gate 2>/dev/null || true
 pkill -f "scan_gate.py" 2>/dev/null || true
 pkill -f rviz2 2>/dev/null || true
@@ -46,6 +48,8 @@ pkill -SIGKILL -f "static_map_publisher.py" 2>/dev/null || true
 pkill -SIGKILL -f static_map_publisher 2>/dev/null || true
 pkill -SIGKILL -f saved_map_server 2>/dev/null || true
 pkill -SIGKILL -f odom_reset_tf 2>/dev/null || true
+pkill -SIGKILL -f initial_pose_relay 2>/dev/null || true
+pkill -SIGKILL -f "initial_pose_relay.py" 2>/dev/null || true
 pkill -SIGKILL -f scan_gate 2>/dev/null || true
 pkill -SIGKILL -f "scan_gate.py" 2>/dev/null || true
 pkill -SIGKILL -f rviz2 2>/dev/null || true
