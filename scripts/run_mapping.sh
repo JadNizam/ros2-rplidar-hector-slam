@@ -49,11 +49,7 @@ launch_once() {
         return 1
     fi
 
-    # The LiDAR driver respawns itself through the C1's intermittent
-    # cold-start (80008002 / 80008000), so /scan can take a few respawn
-    # cycles (~7s each) to appear. Wait long enough to ride those out
-    # before declaring a real hardware failure.
-    echo "Waiting for /scan (LiDAR driver may respawn a few times)..."
+    echo "Waiting for /scan (LiDAR driver may respawn)..."
     if ! bash "$SCRIPT_DIR/wait_for_scan.sh" 45; then
         LAUNCH_PID=""
         return 1

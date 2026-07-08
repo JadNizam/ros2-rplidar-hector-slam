@@ -19,15 +19,7 @@ def launch_setup(context, *args, **kwargs):
     upper_rad = math.radians(max_deg + offset)
     laser_yaw_rad = math.radians(laser_yaw_deg)
 
-    # 1. RPLIDAR C1 driver — publishes /scan
-    #
-    # The C1's first startScan() after power-up/reset is intermittent: it
-    # returns 80008002 (timeout) or 80008000 (invalid data) on some attempts
-    # and succeeds on others with the exact same command. The driver only
-    # tries once and then exits(1). Instead of letting that one flaky start
-    # tear down the whole stack, we respawn ONLY the driver until the scan
-    # catches (empirically 1-4 tries). RViz/slam_toolbox/rf2o stay up the
-    # whole time. The C1 supports only the 'Standard' scan mode.
+    # RPLIDAR C1 driver — respawn on intermittent cold-start scan failures.
     rplidar_node = Node(
         package='rplidar_ros',
         executable='rplidar_composition',
