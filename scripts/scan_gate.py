@@ -30,8 +30,8 @@ class ScanGate(Node):
         if self._open:
             return
         self.get_logger().info(
-            '2D Pose received — releasing scans to slam_toolbox in 0.5s')
-        self._gate_timer = self.create_timer(0.5, self._open_gate)
+            '2D Pose received — releasing scans to slam_toolbox in 0.2s')
+        self._gate_timer = self.create_timer(0.2, self._open_gate)
 
     def _open_gate(self):
         if self._open:
