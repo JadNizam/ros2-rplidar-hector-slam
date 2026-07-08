@@ -2,9 +2,7 @@ import math
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, EmitEvent, OpaqueFunction, RegisterEventHandler
-from launch.event_handlers import OnProcessExit
-from launch.events import Shutdown
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -22,11 +20,21 @@ def launch_setup(context, *args, **kwargs):
     laser_yaw_rad = math.radians(laser_yaw_deg)
 
     # 1. RPLIDAR C1 driver — publishes /scan
+    #
+    # The C1's first startScan() after power-up/reset is intermittent: it
+    # returns 80008002 (timeout) or 80008000 (invalid data) on some attempts
+    # and succeeds on others with the exact same command. The driver only
+    # tries once and then exits(1). Instead of letting that one flaky start
+    # tear down the whole stack, we respawn ONLY the driver until the scan
+    # catches (empirically 1-4 tries). RViz/slam_toolbox/rf2o stay up the
+    # whole time. The C1 supports only the 'Standard' scan mode.
     rplidar_node = Node(
         package='rplidar_ros',
         executable='rplidar_composition',
         name='rplidar',
         output='screen',
+        respawn=True,
+        respawn_delay=3.0,
         parameters=[{
             'serial_port': '/dev/ttyUSB0',
             'serial_baudrate': 460800,
@@ -35,17 +43,8 @@ def launch_setup(context, *args, **kwargs):
         }],
     )
 
-    # If rplidar exits, shut down launch so wrapper scripts can retry.
-    rplidar_exit_handler = RegisterEventHandler(
-        OnProcessExit(
-            target_action=rplidar_node,
-            on_exit=[EmitEvent(event=Shutdown())],
-        )
-    )
-
     return [
         rplidar_node,
-        rplidar_exit_handler,
 
         # 2. Laser filter — range filter + front angular sector filter
         Node(

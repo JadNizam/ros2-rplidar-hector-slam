@@ -44,12 +44,17 @@ launch_once() {
     sleep 10
 
     if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
-        echo "ERROR: mapping launch exited during startup (LiDAR failed to start)."
+        echo "ERROR: mapping launch exited during startup."
         LAUNCH_PID=""
         return 1
     fi
 
-    if ! bash "$SCRIPT_DIR/wait_for_scan.sh" 25; then
+    # The LiDAR driver respawns itself through the C1's intermittent
+    # cold-start (80008002 / 80008000), so /scan can take a few respawn
+    # cycles (~7s each) to appear. Wait long enough to ride those out
+    # before declaring a real hardware failure.
+    echo "Waiting for /scan (LiDAR driver may respawn a few times)..."
+    if ! bash "$SCRIPT_DIR/wait_for_scan.sh" 45; then
         LAUNCH_PID=""
         return 1
     fi
