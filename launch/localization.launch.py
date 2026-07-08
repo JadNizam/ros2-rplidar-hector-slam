@@ -48,10 +48,10 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    odom_reset_tf = Node(
-        name='odom_reset_tf',
+    initial_pose_relay = Node(
+        name='initial_pose_relay',
         executable='python3',
-        arguments=[os.path.join(SCRIPT_DIR, 'odom_reset_tf.py')],
+        arguments=[os.path.join(SCRIPT_DIR, 'initial_pose_relay.py')],
         output='screen',
     )
 
@@ -62,8 +62,7 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    # See mapping.launch.py: the C1 cold-start is intermittent, so respawn the
-    # driver until the scan catches instead of tearing down the whole stack.
+    # RPLIDAR C1 driver — respawn on intermittent cold-start scan failures.
     rplidar_node = Node(
         package='rplidar_ros',
         executable='rplidar_composition',
@@ -149,7 +148,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[{
                 'laser_scan_topic': '/scan_filtered',
                 'odom_topic': '/odom_rf2o',
-                'publish_tf': False,
+                'publish_tf': True,
                 'base_frame_id': 'base_link',
                 'odom_frame_id': 'odom',
                 'init_pose_from_topic': '',
@@ -182,7 +181,7 @@ def launch_setup(context, *args, **kwargs):
         slam_toolbox_node,
         configure_slam,
         activate_slam,
-        odom_reset_tf,
+        initial_pose_relay,
         scan_gate,
         rplidar_node,
         rviz_after_map,
