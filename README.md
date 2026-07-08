@@ -194,6 +194,65 @@ ros2 run tf2_ros tf2_echo odom base_link
 
 ---
 
+## 6b. Auto Localization (no 2D Pose Estimate)
+
+Same LiDAR + rf2o + map path as Section 6, but slam_toolbox starts at the map origin without a 2D Pose Estimate click.
+
+```bash
+bash scripts/stop_ros.sh
+bash scripts/run_localization_auto.sh my_room
+```
+
+`slam_toolbox_localization_auto.yaml` sets `map_start_pose: [0.0, 0.0, 0.0]` and reads `/scan_filtered` directly (no scan gate).
+
+**Tips:**
+1. Start near where you began mapping (map origin).
+2. Walk slowly through open space so the matcher sees corners and doorways.
+3. Watch `/scan_filtered` snap onto the saved walls.
+4. If it settles wrong, click **2D Pose Estimate** to correct.
+
+This is not global localization — slam_toolbox refines from the assumed start pose. If you start far from the origin, use Section 6 or 6c instead.
+
+**Start heading:** set `map_start_yaw_deg` if the arrow points the wrong way (`+90` = map +Y, default):
+
+```bash
+ros2 launch launch/localization_auto.launch.py map_file:=$(pwd)/maps/my_room map_start_yaw_deg:=90
+```
+
+Also available: `map_start_x`, `map_start_y`.
+
+---
+
+## 6c. Global Localization with AMCL
+
+AMCL spreads pose hypotheses across the saved map and converges as your scans match the walls. No starting guess required.
+
+**Install** (included in `setup.sh`):
+```bash
+sudo apt install -y ros-jazzy-nav2-amcl
+```
+
+**Run:**
+```bash
+bash scripts/stop_ros.sh
+bash scripts/run_localization_amcl.sh my_room
+```
+
+**In RViz:**
+- Saved map on `/map` (from `localization_map_viz.py`)
+- Blue particle cloud on `/particle_cloud`
+- Red pose arrow on `/amcl_pose`
+
+**To converge:** walk slowly past corners and doorways. The particle cloud shrinks as AMCL locks on. Re-scatter anytime:
+
+```bash
+ros2 service call /reinitialize_global_localization std_srvs/srv/Empty {}
+```
+
+Tuning: `config/amcl.yaml`. Use Section 6 for click-based slam_toolbox localization; use 6c when you don't know your start position.
+
+---
+
 ## 7. Walking Procedure (handheld mapping)
 
 Getting a clean map is mostly about *how* you walk, not just the software. The config is now tuned so you can move at a **normal-to-brisk walking pace (~1.5 m/s)** — the limit is set by `correlation_search_space_dimension` and `minimum_time_interval` (see Key Parameters).
